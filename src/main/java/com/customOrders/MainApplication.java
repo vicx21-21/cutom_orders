@@ -22,6 +22,7 @@ public class MainApplication extends Application {
 
         // 3. Configura y muestra la ventana principal (Stage)
         stage.setTitle("Sistema de Órdenes - Acceso");
+        stage.centerOnScreen();
         stage.setScene(scene);
         stage.show();
     }

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+<?import javafx.geometry.Pos?>
+
+<!--
+    Usamos VBox como contenedor principal para aplicar centrado vertical
+    y StackPane (o GridPane) se centra automáticamente dentro.
+-->
+<VBox alignment="CENTER" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="450.0" prefWidth="700.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.customOrders.AdminAuthController">
+    <padding>
+        <Insets bottom="50.0" left="50.0" right="50.0" top="50.0" />
+    </padding>
+
+    <children>
+        <!-- Título principal de la tarjeta de autenticación -->
+        <Label text="Acceso al Panel de Administración">
+            <font>
+                <Font name="System Bold" size="22.0" />
+            </font>
+            <VBox.margin>
+                <Insets bottom="30.0" />
+            </VBox.margin>
+        </Label>
+
+        <!-- Contenedor del Formulario (GridPane) -->
+        <GridPane hgap="10.0" vgap="15.0" style="-fx-border-color: #ccc; -fx-border-radius: 8; -fx-padding: 20;">
+            <columnConstraints>
+                <!-- Columna 0: Etiquetas -->
+                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="120.0" />
+                <!-- Columna 1: Campos de texto -->
+                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="250.0" />
+            </columnConstraints>
+            <rowConstraints>
+                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+            </rowConstraints>
+            <children>
+                <Label text="Usuario" />
+                <Label text="Contraseña" GridPane.rowIndex="1" />
+                <Label text="URL de BD" GridPane.rowIndex="2" />
+
+                <TextField fx:id="usuarioText" GridPane.columnIndex="1" />
+                <PasswordField fx:id="contraseñaText" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                <TextField fx:id="urlText" text="jdbc:postgresql://localhost:5432/data_model_with_custom_orders" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+                <!-- Botón de Ingreso centrado en la última fila -->
+                <Button mnemonicParsing="false" onAction="#ingresar" text="Ingresar" GridPane.columnIndex="1" GridPane.halignment="CENTER" GridPane.rowIndex="3" />
+            </children>
+            <padding>
+                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+            </padding>
+        </GridPane>
+    </children>
+</VBox>

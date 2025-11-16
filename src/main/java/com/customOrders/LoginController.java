@@ -2,6 +2,7 @@ package com.customOrders;
 
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -14,28 +15,27 @@ public class LoginController {
     // Método auxiliar para manejar el cambio de vista en la misma Stage
     private void navigateTo(ActionEvent event, String fxmlFileName) throws IOException {
 
-        // Obtiene la Stage actual de la fuente del evento (el botón)
-        Stage currentStage = (Stage) ((Button) event.getSource()).getScene().getWindow();
+        // CORRECCIÓN CLAVE: Usamos '/' para buscar el archivo desde la raíz
+        // de la carpeta 'src/main/resources'.
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/" + fxmlFileName));
 
-        // Carga la nueva vista FXML
-        FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlFileName));
-        Parent root = loader.load();
+        // Se mantiene el código de carga de escena y ventana:
+        Scene scene = new Scene(fxmlLoader.load());
+        Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
 
-        // Crea una nueva escena y reemplaza la escena actual
-        Scene scene = new Scene(root);
-        currentStage.setScene(scene);
-        currentStage.setTitle(fxmlFileName.replace(".fxml", "").toUpperCase()); // Establece el título
-        currentStage.show();
+        // Configurar título según el archivo cargado (opcional)
+        if (fxmlFileName.equals("AdminAuthView.fxml")) {
+            stage.setTitle("Autenticación de Encargado");
+        }
+
+        stage.setScene(scene);
+        stage.show();
     }
 
-    /**
-     * Se llama al hacer clic en el botón "Encargado".
-     * Abre la vista principal de administración (donde está la tabla de Clientes/Empleados).
-     */
     @FXML
     private void handleEntrarComoEncargado(ActionEvent event) throws IOException {
-        // Debes crear el archivo CustomerAdmin.fxml o un Dashboard principal
-        navigateTo(event, "CustomerAdmin.fxml");
+        // Llama a la navegación con el nombre del archivo
+        navigateTo(event, "AdminAuthView.fxml");
     }
 
     /**
