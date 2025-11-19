@@ -46,6 +46,6 @@ public class LoginController {
     private void handleEntrarComoCliente(ActionEvent event) throws IOException {
         // Creamos un placeholder. Debes crear ClientShopView.fxml
         System.out.println("Entrando como Cliente...");
-        // navigateTo(event, "ClientShopView.fxml");
+         navigateTo(event, "CustomerAuthView.fxml");
     }
 }

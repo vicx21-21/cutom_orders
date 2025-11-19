@@ -8,28 +8,17 @@ import java.sql.Statement;
 
 public class PostgresConnector {
 
-    // --- 🔑 Parámetros de Conexión ---
+    // -Parámetros de Conexión
     private static final String URL = "jdbc:postgresql://localhost:5432/data_model_with_custom_orders";
     private static final String USUARIO = "developer";
     private static final String CONTRASENA = "210521";
 
-    // -------------------------------------------------------------
-    // ✅ MÉTODO REQUERIDO: Devuelve una nueva conexión JDBC
-    // -------------------------------------------------------------
-    /**
-     * Establece y devuelve una nueva conexión a la base de datos PostgreSQL.
-     * Este método es utilizado por las clases DAO (Data Access Object).
-     * @return Una nueva conexión JDBC.
-     * @throws SQLException Si ocurre un error de conexión a la base de datos.
-     */
+
     public static Connection getConnection() throws SQLException {
         // Usa DriverManager para establecer la conexión con los parámetros definidos
         return DriverManager.getConnection(URL, USUARIO, CONTRASENA);
     }
 
-    // -------------------------------------------------------------
-    // 🧪 MÉTODO MAIN: Punto de entrada para probar la conexión
-    // -------------------------------------------------------------
     public static void main(String[] args) {
 
         System.out.println("Intentando conectar a la base de datos PostgreSQL...");
@@ -39,7 +28,7 @@ public class PostgresConnector {
              Statement statement = connection.createStatement()) {
 
             if (connection != null) {
-                System.out.println("✅ ¡Conexión exitosa!");
+                System.out.println(" ¡Conexión exitosa!");
 
                 // --- Ejemplo de Consulta SQL ---
                 String sql = "SELECT current_database() AS db_name, now() AS server_time;";
@@ -58,11 +47,11 @@ public class PostgresConnector {
 
             } else {
                 // Esta parte es difícil de alcanzar si getConnection lanza una excepción en caso de fallo.
-                System.out.println("❌ Falló la conexión (El objeto Connection es nulo).");
+                System.out.println("Falló la conexión (El objeto Connection es nulo).");
             }
 
         } catch (SQLException e) {
-            System.out.println("❌ Error de Conexión o de Consulta SQL.");
+            System.out.println(" Error de Conexión o de Consulta SQL.");
             System.out.println("Verifica los parámetros de conexión, el driver y que el servidor PostgreSQL esté en ejecución.");
             System.out.println("Detalle del Error: " + e.getMessage());
         }
