@@ -32,7 +32,7 @@ public class AdminAuthController {
         String usuario = usuarioText.getText();
         String contraseña = contraseñaText.getText();
 
-        if (usuario.equals("developer") && contraseña.equals("210521")) {
+        if (usuario.equals("empleado2") && contraseña.equals("empleado2025")) {
 
             // Navegación EXITOSA
             try {

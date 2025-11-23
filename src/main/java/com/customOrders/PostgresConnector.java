@@ -10,8 +10,8 @@ public class PostgresConnector {
 
     // -Parámetros de Conexión
     private static final String URL = "jdbc:postgresql://localhost:5432/data_model_with_custom_orders";
-    private static final String USUARIO = "developer";
-    private static final String CONTRASENA = "210521";
+    private static final String USUARIO = "empleado2";
+    private static final String CONTRASENA = "empleado2025";
 
 
     public static Connection getConnection() throws SQLException {
