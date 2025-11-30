@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.Spinner?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<!-- Vista de administración de órdenes: Lista de pedidos (izquierda) y Creación/Detalles (derecha) -->
+<!-- Controlador: customOrders.OrdersAdmin.OrdersAdminController -->
+<AnchorPane prefHeight="700.0" prefWidth="1200.0" style="-fx-background-color: #f4f7fa;" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="customOrders.OrdersAdmin.OrdersAdminController">
+
+    <children>
+        <VBox alignment="TOP_CENTER" style="-fx-padding: 20;" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+            <children>
+                <!-- Título Principal -->
+                <Label style="-fx-text-fill: #00796B; -fx-font-weight: 800; -fx-padding: 0 0 10 0;" text="Gestión de Pedidos (Administrador)">
+                    <font>
+                        <Font size="26.0" />
+                    </font>
+                    <VBox.margin>
+                        <Insets bottom="15.0" top="10.0" />
+                    </VBox.margin>
+                </Label>
+
+                <!-- Contenedor principal con SplitPane -->
+                <SplitPane dividerPositions="0.5"
+                           style="-fx-border-radius: 10; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 15, 0.4, 0, 4);"
+                           VBox.vgrow="ALWAYS">
+                    <items>
+                        <!-- Sección Izquierda: LISTA DE PEDIDOS Y ACTUALIZACIÓN DE ESTADO -->
+                        <VBox spacing="10.0" style="-fx-background-color: white; -fx-padding: 15;">
+                            <children>
+                                <Label style="-fx-font-weight: bold; -fx-text-fill: #37474F; -fx-font-size: 16px;" text="Órdenes Existentes" />
+
+                                <!-- Tabla de Órdenes -->
+                                <TableView fx:id="ordersTable" VBox.vgrow="ALWAYS">
+                                    <columnResizePolicy>
+                                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                                    </columnResizePolicy>
+                                    <columns>
+                                        <!-- IDs CORREGIDOS para OrdersAdminController.java -->
+                                        <TableColumn fx:id="orderIdCol" prefWidth="60.0" text="ID" />
+                                        <TableColumn fx:id="customerCol" prefWidth="150.0" text="Cliente" />
+                                        <TableColumn fx:id="dateCol" prefWidth="120.0" text="Fecha" />
+                                        <TableColumn fx:id="statusCol" prefWidth="120.0" text="Estado" />
+                                        <TableColumn fx:id="actionsCol" prefWidth="100.0" text="Acciones" />
+                                    </columns>
+                                </TableView>
+
+                                <Label style="-fx-font-weight: bold; -fx-text-fill: #37474F; -fx-font-size: 14px;" text="Detalles del Pedido Seleccionado:" />
+                                <!-- Área de texto para detalles -->
+                                <TextArea fx:id="detailsTextArea" editable="false" prefHeight="150.0" style="-fx-font-family: monospace;" VBox.vgrow="NEVER" />
+
+                                <!-- Control de Actualización de Estado -->
+                                <HBox alignment="CENTER_LEFT" spacing="10.0" style="-fx-padding: 10; -fx-background-color: #E8F5E9; -fx-background-radius: 5;">
+                                    <children>
+                                        <Label text="Cambiar Estado a:" style="-fx-font-weight: bold; -fx-text-fill: #2E7D32;" />
+                                        <ComboBox fx:id="statusComboBox" prefWidth="150.0" />
+                                        <!-- MÉTODO CORREGIDO: handleUpdateStatus -->
+                                        <Button fx:id="updateStatusButton" onAction="#handleUpdateStatus" text="Aplicar Nuevo Estado" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 5 10;" />
+                                    </children>
+                                </HBox>
+
+                            </children>
+                        </VBox>
+
+                        <!-- Sección Derecha: CREACIÓN DE NUEVO PEDIDO -->
+                        <VBox spacing="15.0" style="-fx-background-color: #FAFAFA; -fx-padding: 20;">
+                            <children>
+                                <Label style="-fx-font-weight: bold; -fx-text-fill: #00796B; -fx-font-size: 20px;" text="Crear Nuevo Pedido" />
+
+                                <!-- Campos del Nuevo Pedido -->
+                                <GridPane hgap="10.0" vgap="10.0" style="-fx-padding: 10; -fx-border-color: #B2DFDB; -fx-border-width: 1; -fx-background-color: #F0FDFD; -fx-background-radius: 5;">
+                                    <columnConstraints>
+                                        <javafx.scene.layout.ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
+                                        <javafx.scene.layout.ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="250.0" />
+                                    </columnConstraints>
+                                    <children>
+                                        <Label text="Nombre Cliente:" />
+                                        <!-- ID CORREGIDO: newCustomerNameField -->
+                                        <TextField fx:id="newCustomerNameField" promptText="Nombre del Cliente" GridPane.columnIndex="1" />
+                                        <Label text="Dirección Envío:" GridPane.rowIndex="1" />
+                                        <!-- ID CORREGIDO: newShippingAddressField -->
+                                        <TextField fx:id="newShippingAddressField" promptText="Dirección de Envío" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                                    </children>
+                                </GridPane>
+
+                                <!-- Formulario para Agregar Ítem -->
+                                <Label style="-fx-font-weight: bold; -fx-text-fill: #37474F; -fx-font-size: 14px;" text="Añadir Ítems al Nuevo Pedido:" />
+                                <HBox alignment="CENTER_LEFT" spacing="10.0">
+                                    <children>
+                                        <!-- ID CORREGIDO: productComboBox -->
+                                        <ComboBox fx:id="productComboBox" prefWidth="250.0" promptText="Seleccionar Producto" />
+                                        <Label text="Cantidad:" />
+                                        <!-- ID CORREGIDO: quantitySpinner -->
+                                        <Spinner fx:id="quantitySpinner" prefWidth="80.0" />
+                                        <!-- MÉTODO CORREGIDO: handleAddItemToNewOrder -->
+                                        <Button onAction="#handleAddItemToNewOrder" text="Añadir" style="-fx-background-color: #00BCD4; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 5 10;" />
+                                    </children>
+                                </HBox>
+
+                                <!-- Tabla de Ítems del Nuevo Pedido -->
+                                <TableView fx:id="newOrderItemsTable" VBox.vgrow="ALWAYS">
+                                    <columnResizePolicy>
+                                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                                    </columnResizePolicy>
+                                    <columns>
+                                        <!-- IDs CORREGIDOS para OrderItem -->
+                                        <TableColumn fx:id="newItemProductCol" prefWidth="200.0" text="Producto" />
+                                        <TableColumn fx:id="newItemQuantityCol" prefWidth="60.0" text="Cant." />
+                                        <TableColumn fx:id="newItemPriceCol" prefWidth="80.0" text="Subtotal" />
+                                    </columns>
+                                </TableView>
+
+                                <!-- Botón y Total -->
+                                <HBox alignment="CENTER_RIGHT" spacing="20.0">
+                                    <children>
+                                        <!-- ID CORREGIDO: totalLabel -->
+                                        <Label fx:id="totalLabel" style="-fx-font-weight: bold; -fx-text-fill: #D84315;">
+                                            <font>
+                                                <Font size="18.0" />
+                                            </font>
+                                        </Label>
+                                        <!-- MÉTODO CORREGIDO: handlePlaceOrder -->
+                                        <Button fx:id="placeOrderButton" onAction="#handlePlaceOrder" text="CONFIRMAR Y CREAR PEDIDO" style="-fx-background-color: #004D40; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 8; -fx-padding: 10 20;">
+                                            <font>
+                                                <Font size="16.0" />
+                                            </font>
+                                        </Button>
+                                    </children>
+                                </HBox>
+                            </children>
+                        </VBox>
+                    </items>
+                </SplitPane>
+            </children>
+        </VBox>
+    </children>
+</AnchorPane>

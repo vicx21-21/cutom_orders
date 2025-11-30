@@ -1,13 +1,79 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            prefHeight="400.0" prefWidth="600.0">
+<!-- Vista de historial de órdenes. Solo utiliza 'style' en línea (el método más seguro). -->
+<!-- Controlador: customOrders.Orders.ViewOrdersController -->
+<AnchorPane prefHeight="600.0" prefWidth="1000.0" style="-fx-background-color: #f4f7fa;" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="customOrders.Orders.ViewOrdersController">
 
+    <children>
+        <VBox alignment="TOP_CENTER" style="-fx-padding: 20;" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+            <children>
+                <!-- Título Principal -->
+                <Label style="-fx-text-fill: #1976D2; -fx-font-weight: 800; -fx-padding: 0 0 10 0;" text="Historial de Pedidos">
+                    <font>
+                        <Font size="26.0" />
+                    </font>
+                    <VBox.margin>
+                        <Insets bottom="15.0" top="10.0" />
+                    </VBox.margin>
+                </Label>
+
+                <!-- Contenedor principal con SplitPane (efecto de tarjeta) -->
+                <SplitPane dividerPositions="0.4"
+                           style="-fx-border-radius: 10; -fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 15, 0.4, 0, 4);"
+                           VBox.vgrow="ALWAYS">
+                    <items>
+                        <!-- Sección Izquierda: Tabla de Resumen de Órdenes -->
+                        <AnchorPane style="-fx-background-color: white; -fx-padding: 10;">
+                            <children>
+                                <Label style="-fx-font-weight: bold; -fx-text-fill: #37474F; -fx-font-size: 16px;" text="Órdenes" AnchorPane.leftAnchor="5.0" AnchorPane.topAnchor="0.0" />
+
+                                <!-- Tabla de Órdenes: Solo con borde sutil -->
+                                <TableView fx:id="ordersTable" style="-fx-border-color: #E0E0E0; -fx-border-width: 1; -fx-border-radius: 5;" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="30.0">
+                                    <columnResizePolicy>
+                                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                                    </columnResizePolicy>
+                                    <columns>
+                                        <TableColumn fx:id="orderIdColumn" prefWidth="100.0" text="ID" />
+                                        <TableColumn fx:id="dateColumn" prefWidth="150.0" text="Fecha Pedido" />
+                                        <TableColumn fx:id="statusColumn" prefWidth="120.0" text="Estado" />
+                                        <TableColumn fx:id="totalColumn" prefWidth="80.0" text="Total" />
+                                    </columns>
+                                </TableView>
+                            </children>
+                        </AnchorPane>
+
+                        <!-- Sección Derecha: Detalles de la Orden Seleccionada -->
+                        <AnchorPane style="-fx-background-color: #FAFAFA; -fx-padding: 10;">
+                            <children>
+                                <Label fx:id="orderDetailsTitle" style="-fx-font-weight: bold; -fx-text-fill: #1976D2; -fx-font-size: 16px;" text="Contenido de la Orden" AnchorPane.leftAnchor="5.0" AnchorPane.topAnchor="0.0" />
+                                <Label fx:id="orderIdDetailLabel" text="Seleccione un pedido para ver los detalles..." AnchorPane.leftAnchor="5.0" AnchorPane.topAnchor="30.0" />
+
+                                <!-- Tabla de Items: Solo con borde sutil -->
+                                <TableView fx:id="itemsTable" style="-fx-border-color: #E0E0E0; -fx-border-width: 1; -fx-border-radius: 5;" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="60.0">
+                                    <columnResizePolicy>
+                                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                                    </columnResizePolicy>
+                                    <columns>
+                                        <TableColumn fx:id="itemNameColumn" prefWidth="250.0" text="Producto" />
+                                        <TableColumn fx:id="itemQuantityColumn" maxWidth="100.0" prefWidth="75.0" text="Cant." />
+                                        <TableColumn fx:id="itemUnitPriceColumn" maxWidth="120.0" prefWidth="80.0" text="P. Unitario" />
+                                        <TableColumn fx:id="itemSubtotalColumn" maxWidth="120.0" prefWidth="90.0" text="Subtotal" />
+                                    </columns>
+                                </TableView>
+                            </children>
+                        </AnchorPane>
+                    </items>
+                </SplitPane>
+            </children>
+        </VBox>
+    </children>
 </AnchorPane>
