@@ -86,7 +86,7 @@ public class ProductManager {
             ps.setDate(10, Date.valueOf(LocalDate.now())); // Se inserta la fecha actual
             ps.setBoolean(11, product.getIs_active());
             ps.setInt(12, product.getQuantity());
-            ps.setString(13, product.getImageUrl()); // ** NUEVO: Setear la URL de la imagen **
+            ps.setString(13, product.getImage_url()); // ** NUEVO: Setear la URL de la imagen **
 
             int affectedRows = ps.executeUpdate();
             if (affectedRows == 0) {
@@ -101,7 +101,7 @@ public class ProductManager {
                             newId, product.getProduct_type_code(), product.getSupplier_id(), product.getProduct_name(), product.getUnit_price(),
                             product.getProduct_description(), product.getReorder_level(), product.getReorder_quantity(), product.getOther_details(),
                             product.getWeight_kg(), LocalDate.now(), product.getIs_active(), product.getQuantity(),
-                            product.getImageUrl() // ** NUEVO: Incluir la URL de la imagen **
+                            product.getImage_url() // ** NUEVO: Incluir la URL de la imagen **
                     );
                 } else {
                     throw new SQLException("La inserción de producto falló, no se obtuvo ID generado.");
@@ -159,7 +159,7 @@ public class ProductManager {
             ps.setDouble(9, product.getWeight_kg());
             ps.setBoolean(10, product.getIs_active());
             ps.setInt(11, product.getQuantity());
-            ps.setString(12, product.getImageUrl()); // ** NUEVO: Setear la URL de la imagen **
+            ps.setString(12, product.getImage_url()); // ** NUEVO: Setear la URL de la imagen **
             ps.setInt(13, product.getProduct_id()); // WHERE condition (PK)
 
             return ps.executeUpdate() > 0;

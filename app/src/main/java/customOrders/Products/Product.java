@@ -4,7 +4,7 @@ import java.time.LocalDate;
 
 /**
  * Clase de modelo para la entidad Products.
- * Se incluye el nuevo campo 'imageUrl' para la ruta de la imagen del producto.
+ * Se incluye el campo 'image_url' (usando guion bajo para consistencia) para la ruta de la imagen del producto.
  */
 public class Product {
     private final Integer product_id;
@@ -22,16 +22,16 @@ public class Product {
     private Integer quantity; // Mutable Stock Maestro
 
     // *************************************************************
-    // ** NUEVO CAMPO **
+    // ** CAMPO RENOMBRADO para consistencia con 'image_url' en TableView **
     // *************************************************************
-    private final String imageUrl; // character varying (Ruta de la imagen)
+    private String image_url; // Ya no es final, permitiendo el setter.
 
     // *************************************************************
     // ** CONSTRUCTOR COMPLETO (14 argumentos) **
     // *************************************************************
     public Product(Integer product_id, String product_type_code, Integer supplier_id, String product_name, Double unit_price,
                    String product_description, Integer reorder_level, Integer reorder_quantity, String other_details,
-                   Double weight_kg, LocalDate date_added, Boolean is_active, Integer quantity, String imageUrl) {
+                   Double weight_kg, LocalDate date_added, Boolean is_active, Integer quantity, String image_url) {
         this.product_id = product_id;
         this.product_type_code = product_type_code != null ? product_type_code : "";
         this.supplier_id = supplier_id;
@@ -45,7 +45,7 @@ public class Product {
         this.date_added = date_added;
         this.is_active = is_active;
         this.quantity = quantity;
-        this.imageUrl = imageUrl != null ? imageUrl : ""; // Inicializar el nuevo campo
+        this.image_url = image_url != null ? image_url : ""; // Ahora usamos 'image_url'
     }
 
     // Getters
@@ -64,12 +64,17 @@ public class Product {
     public Integer getQuantity() { return quantity; }
 
     // *************************************************************
-    // ** NUEVO GETTER **
+    // ** GETTER CORREGIDO para coincidir con "image_url" en TableView **
     // *************************************************************
-    public String getImageUrl() { return imageUrl; }
+    public String getImage_url() { return image_url; } // getName() para campo "name"
 
     // Setter para quantity
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+    }
+
+    // Setter corregido para image_url
+    public void setImage_url(String image_url) {
+        this.image_url = image_url;
     }
 }

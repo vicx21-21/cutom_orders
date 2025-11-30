@@ -7,6 +7,8 @@ import customOrders.Products.ProductManager.SupplierFK;
 import customOrders.Products.Product;
 import customOrders.util.Dialogs;
 import customOrders.util.Validator;
+// AÑADIDO: Importación de ImageUtil para cargar imágenes
+import customOrders.util.ImageUtil;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -24,6 +26,12 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.LocalDate;
 import java.util.Optional;
+// Nuevas importaciones para manejo de archivos
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.io.IOException;
 
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -31,48 +39,75 @@ import javafx.beans.property.SimpleStringProperty;
 
 public class ProductController {
 
+    // RUTA LÓGICA (DENTRO DEL CLASSPATH) - Solo se usa para determinar la carpeta de guardado.
+    // La ruta física de destino será: src/main/resources/ + esta ruta.
+    private static final String RESOURCE_PATH_PREFIX = "customOrders/resources/product_images/";
+
     // *************************************************************
     // ** Campos FXML de la Tabla **
     // *************************************************************
-    @FXML private TableView<Product> productTable;
-    @FXML private TableColumn<Product, Integer> idColumn;
-    @FXML private TableColumn<Product, String> nameColumn;
-    @FXML private TableColumn<Product, String> typeColumn;
-    @FXML private TableColumn<Product, String> supplierColumn;
-    @FXML private TableColumn<Product, Double> priceColumn;
-    @FXML private TableColumn<Product, Integer> quantityColumn;
-    @FXML private TableColumn<Product, Boolean> activeColumn;
-    @FXML private Label messageLabel;
+    @FXML
+    private TableView<Product> productTable;
+    @FXML
+    private TableColumn<Product, Integer> idColumn;
+    @FXML
+    private TableColumn<Product, String> nameColumn;
+    @FXML
+    private TableColumn<Product, String> typeColumn;
+    @FXML
+    private TableColumn<Product, String> supplierColumn;
+    @FXML
+    private TableColumn<Product, Double> priceColumn;
+    @FXML
+    private TableColumn<Product, Integer> quantityColumn;
+    @FXML
+    private TableColumn<Product, Boolean> activeColumn;
+    @FXML
+    private Label messageLabel;
 
     // *************************************************************
     // ** Campos FXML del Formulario **
     // *************************************************************
-    @FXML private TextField idField;
-    @FXML private TextField nameField;
-    // Usamos los records FK de ProductManager
-    @FXML private ComboBox<ProductTypeFK> productTypeCombo;
-    @FXML private ComboBox<SupplierFK> supplierCombo;
-    @FXML private TextField priceField;
-    @FXML private TextField quantityField;
-    @FXML private TextField reorderLevelField;
-    @FXML private TextField reorderQuantityField;
-    @FXML private TextField weightField;
-    @FXML private TextField otherDetailsField;
-    @FXML private TextField descriptionField;
-    @FXML private CheckBox isActiveCheck;
-    @FXML private Button deleteButton;
-    @FXML private Button saveButton; // Añadido si se usa el fx:id para guardar
+    @FXML
+    private TextField idField;
+    @FXML
+    private TextField nameField;
+    @FXML
+    private ComboBox<ProductTypeFK> productTypeCombo;
+    @FXML
+    private ComboBox<SupplierFK> supplierCombo;
+    @FXML
+    private TextField priceField;
+    @FXML
+    private TextField quantityField;
+    @FXML
+    private TextField reorderLevelField;
+    @FXML
+    private TextField reorderQuantityField;
+    @FXML
+    private TextField weightField;
+    @FXML
+    private TextField otherDetailsField;
+    @FXML
+    private TextField descriptionField;
+    @FXML
+    private CheckBox isActiveCheck;
+    @FXML
+    private Button deleteButton;
+    @FXML
+    private Button saveButton;
 
     // *************************************************************
     // ** Campos FXML para Imagen (VERIFICA ESTOS EN TU FXML) **
     // *************************************************************
-    @FXML private TextField imageUrlField;
-    @FXML private ImageView previewImageView;
+    @FXML
+    private TextField imageUrlField;
+    @FXML
+    private ImageView previewImageView;
 
 
     private final ProductManager productManager = new ProductManager();
     private ObservableList<Product> productData;
-    // Usamos los records FK de ProductManager
     private ObservableList<ProductTypeFK> productTypes;
     private ObservableList<SupplierFK> suppliers;
 
@@ -147,10 +182,12 @@ public class ProductController {
 
 
     // *************************************************************
-    // ** Método showProductDetails **
+    // ** Método showProductDetails - CORREGIDO **
     // *************************************************************
+
     /**
      * Rellena todos los campos del formulario con los datos del producto o los limpia.
+     *
      * @param product el producto a mostrar, o null para limpiar los campos.
      */
     private void showProductDetails(Product product) {
@@ -178,9 +215,18 @@ public class ProductController {
                             .filter(s -> s.id().equals(product.getSupplier_id()))
                             .findFirst().orElse(null));
 
-            // Campo de URL de Imagen
-            imageUrlField.setText(product.getImageUrl());
-            updateImagePreview();
+            // Establecer la URL de la imagen
+            String imageUrl = product.getImage_url();
+            imageUrlField.setText(imageUrl);
+
+            // APLICACIÓN DE LA CORRECCIÓN: Usar ImageUtil para cargar la imagen,
+            // ya que maneja URLs web, rutas absolutas y nombres de archivo de Classpath.
+            if (imageUrl != null && !imageUrl.trim().isEmpty()) {
+                Image image = ImageUtil.loadImageFromProductUrl(imageUrl);
+                previewImageView.setImage(image);
+            } else {
+                previewImageView.setImage(null);
+            }
 
             deleteButton.setDisable(false);
         } else {
@@ -207,10 +253,12 @@ public class ProductController {
     }
 
     // *************************************************************
-    // ** Método para cargar la imagen y actualizar el ImageView **
+    // ** Método para cargar la imagen y actualizar el ImageView - SIMPLIFICADO **
     // *************************************************************
+
     /**
      * Carga la imagen desde la ruta o URL especificada en el campo de texto y la muestra en el ImageView.
+     * Ahora utiliza el ImageUtil centralizado.
      */
     @FXML
     private void updateImagePreview() {
@@ -220,47 +268,15 @@ public class ProductController {
             return;
         }
 
-        Image image = null;
-        try {
-            // Intentar cargar como URL web (http/https)
-            if (urlString.startsWith("http://") || urlString.startsWith("https://")) {
-                image = new Image(urlString, true); // true para background loading
-            } else {
-                // Intentar cargar como ruta de archivo local
-                File file = new File(urlString);
-                if (file.exists()) {
-                    image = new Image(new FileInputStream(file));
-                } else {
-                    // Mostrar una imagen de error/placeholder si no existe localmente
-                    image = new Image(new URL("https://placehold.co/200x150/ef4444/ffffff?text=Imagen+No+Encontrada").toExternalForm());
-                }
-            }
-        } catch (MalformedURLException | FileNotFoundException e) {
-            // Error al intentar cargar la imagen (URL mal formada o archivo no encontrado)
-            try {
-                image = new Image(new URL("https://placehold.co/200x150/ef4444/ffffff?text=URL+Inválida").toExternalForm());
-            } catch (MalformedURLException e2) {
-                // Esto no debería suceder si la URL de placeholder es correcta
-                System.err.println("Error al cargar placeholder.");
-            }
-        } catch (Exception e) {
-            // Error general (ej. error de I/O)
-            try {
-                image = new Image(new URL("https://placehold.co/200x150/ef4444/ffffff?text=Error+de+Carga").toExternalForm());
-            } catch (MalformedURLException e2) {
-                System.err.println("Error al cargar placeholder.");
-            }
-        }
-
-        // Si hay una imagen (incluso si es un placeholder de error), la establece
-        if (image != null) {
-            previewImageView.setImage(image);
-        }
+        // Usamos el ImageUtil centralizado para previsualizar cualquier tipo de ruta (web, absoluta, classpath)
+        Image image = ImageUtil.loadImageFromProductUrl(urlString);
+        previewImageView.setImage(image);
     }
 
     // *************************************************************
     // ** Método para buscar una imagen localmente **
     // *************************************************************
+
     /**
      * Abre un cuadro de diálogo FileChooser para seleccionar una imagen local
      * y establece la ruta absoluta en el imageUrlField.
@@ -270,22 +286,22 @@ public class ProductController {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Seleccionar Imagen del Producto");
 
-        // Filtro para tipos de archivo comunes de imagen
         FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("Archivos de Imagen", "*.png", "*.jpg", "*.jpeg", "*.gif");
         fileChooser.getExtensionFilters().add(extFilter);
 
-        // Obtener la Stage actual (ventana). Aseguramos que deleteButton no es null.
         if (deleteButton == null || deleteButton.getScene() == null) {
-            System.err.println("Error: No se pudo obtener la ventana (Stage). Verifica la conexión FXML del deleteButton.");
+            System.err.println("Error: No se pudo obtener la ventana (Stage).");
             return;
         }
         Stage stage = (Stage) deleteButton.getScene().getWindow();
         File file = fileChooser.showOpenDialog(stage);
 
         if (file != null) {
-            // Establecer la ruta absoluta del archivo
+            // Se establece la RUTA ABSOLUTA para que se guarde en el campo de texto.
+            // Esto es importante para el método handleSave, que detectará que es un archivo local
+            // y lo copiará a la carpeta de recursos, guardando solo el nombre.
             imageUrlField.setText(file.getAbsolutePath());
-            updateImagePreview(); // Mostrar la vista previa inmediatamente
+            updateImagePreview(); // Mostrar la vista previa
         }
     }
 
@@ -299,13 +315,12 @@ public class ProductController {
     }
 
     // *************************************************************
-    // ** Método handleSave (Con fix para NumberFormatException) **
+    // ** Método handleSave (CON LÓGICA DE COPIA DE ARCHIVO) **
     // *************************************************************
     @FXML
     private void handleSave() {
         String idText = idField.getText();
         String name = nameField.getText();
-        // Usamos ProductTypeFK y SupplierFK
         ProductTypeFK type = productTypeCombo.getSelectionModel().getSelectedItem();
         SupplierFK supplier = supplierCombo.getSelectionModel().getSelectedItem();
         String priceText = priceField.getText();
@@ -316,25 +331,87 @@ public class ProductController {
         String otherDetails = otherDetailsField.getText();
         String description = descriptionField.getText();
         boolean isActive = isActiveCheck.isSelected();
+
         String imageUrl = imageUrlField.getText();
 
         String errorMessage = "";
 
-        // Validación de datos - Aseguramos que NO estén vacíos Y que sean válidos
-        if (name == null || name.trim().isEmpty()) { errorMessage += "Nombre no válido.\n"; }
-        if (type == null) { errorMessage += "Debe seleccionar un Tipo de Producto.\n"; }
-        if (supplier == null) { errorMessage += "Debe seleccionar un Proveedor.\n"; }
+        // Validaciones...
+        if (name == null || name.trim().isEmpty()) {
+            errorMessage += "Nombre no válido.\n";
+        }
+        if (type == null) {
+            errorMessage += "Debe seleccionar un Tipo de Producto.\n";
+        }
+        if (supplier == null) {
+            errorMessage += "Debe seleccionar un Proveedor.\n";
+        }
 
-        // Validaciones numéricas robustas, incluyendo la comprobación de vacío
-        if (priceText.trim().isEmpty() || !Validator.isValidDouble(priceText)) { errorMessage += "Precio Unitario no válido.\n"; }
-        if (quantityText.trim().isEmpty() || !Validator.isValidInteger(quantityText)) { errorMessage += "Stock no válido.\n"; }
-        if (reorderLevelText.trim().isEmpty() || !Validator.isValidInteger(reorderLevelText)) { errorMessage += "Nivel de Reorden no válido.\n"; }
-        if (reorderQuantityText.trim().isEmpty() || !Validator.isValidInteger(reorderQuantityText)) { errorMessage += "Cantidad de Reorden no válida.\n"; }
-        if (weightText.trim().isEmpty() || !Validator.isValidDouble(weightText)) { errorMessage += "Peso no válido.\n"; }
+        if (priceText.trim().isEmpty() || !Validator.isValidDouble(priceText)) {
+            errorMessage += "Precio Unitario no válido.\n";
+        }
+        if (quantityText.trim().isEmpty() || !Validator.isValidInteger(quantityText)) {
+            errorMessage += "Stock no válido.\n";
+        }
+        if (reorderLevelText.trim().isEmpty() || !Validator.isValidInteger(reorderLevelText)) {
+            errorMessage += "Nivel de Reorden no válido.\n";
+        }
+        if (reorderQuantityText.trim().isEmpty() || !Validator.isValidInteger(reorderQuantityText)) {
+            errorMessage += "Cantidad de Reorden no válida.\n";
+        }
+        if (weightText.trim().isEmpty() || !Validator.isValidDouble(weightText)) {
+            errorMessage += "Peso no válido.\n";
+        }
 
         if (errorMessage.isEmpty()) {
             try {
-                // Parsear los valores numéricos del formulario (Ahora sabemos que no son cadenas vacías)
+                // **********************************************************
+                // ** LÓGICA DE MANEJO DE IMAGEN **
+                // **********************************************************
+                if (imageUrl != null && !imageUrl.trim().isEmpty()) {
+                    File sourceFile = new File(imageUrl);
+
+                    // Comprobar si es un archivo local existente y no una URL web
+                    if (sourceFile.exists() && !imageUrl.startsWith("http") && !imageUrl.startsWith("https")) {
+                        try {
+                            String fileName = sourceFile.getName();
+
+                            // RUTA DE DESTINO CORREGIDA: Apunta a la ruta real de tu fuente de recursos
+                            // (src/main/resources/customOrders/resources/product_images)
+                            Path destinationDir = Paths.get("src", "main", "resources", "customOrders", "resources", "product_images");
+
+                            // Asegurar que el directorio de destino existe
+                            if (!Files.exists(destinationDir)) {
+                                Files.createDirectories(destinationDir);
+                            }
+
+                            Path destination = destinationDir.resolve(fileName);
+
+                            // Copiar el archivo
+                            Files.copy(sourceFile.toPath(), destination, StandardCopyOption.REPLACE_EXISTING);
+
+                            // GUARDAR SOLO EL NOMBRE DEL ARCHIVO EN LA BASE DE DATOS
+                            imageUrl = fileName;
+
+                        } catch (IOException e) {
+                            Dialogs.showErrorDialog("Error de Archivo", "Fallo al copiar la imagen.",
+                                    "La imagen no pudo ser copiada a la carpeta de recursos. Se guardará el producto sin URL de imagen.", e);
+                            imageUrl = null;
+                        }
+                    } else if (imageUrl.startsWith("http") || imageUrl.startsWith("https")) {
+                        // Es una URL web: se guarda la URL completa.
+                        // imageUrl ya tiene el valor correcto.
+                    } else {
+                        // Podría ser solo el nombre del archivo ya guardado, lo mantenemos (ej: "OIP.jpg")
+                        // Esto asegura que la edición de un producto que ya tiene una imagen local no borre el nombre.
+                    }
+                }
+                // **********************************************************
+                // ** FIN DE LÓGICA DE MANEJO DE IMAGEN **
+                // **********************************************************
+
+
+                // Parsear los valores numéricos del formulario
                 Double unitPrice = Double.parseDouble(priceText);
                 Integer quantity = Integer.parseInt(quantityText);
                 Integer reorderLevel = Integer.parseInt(reorderLevelText);
@@ -347,7 +424,6 @@ public class ProductController {
 
                 // Crear el objeto Product
                 Product newProduct = new Product(
-                        // Solo parsear idText si no es el valor por defecto
                         idText.equals("Auto-generado") ? null : Integer.parseInt(idText),
                         productTypeCode,
                         supplierId,
@@ -361,6 +437,7 @@ public class ProductController {
                         LocalDate.now(),
                         isActive,
                         quantity,
+                        // Usamos el 'imageUrl' procesado (contiene solo el nombre del archivo o la URL web)
                         imageUrl
                 );
 
@@ -390,7 +467,7 @@ public class ProductController {
     }
 
     // *************************************************************
-    // ** MÉTODOS PENDIENTES (Ejemplo: handleEdit y handleDelete) **
+    // ** MÉTODOS ADICIONALES (handleDelete) **
     // *************************************************************
 
     @FXML

@@ -4,37 +4,44 @@ import customOrders.Products.ProductManager;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
 import customOrders.Orders.CreateOrderManager;
 import customOrders.Orders.ProductInOrder;
 import customOrders.Products.Product;
 import customOrders.util.Dialogs;
 import customOrders.util.Validator;
+import customOrders.util.ImageUtil;
 
+import javafx.scene.layout.TilePane;
+import javafx.scene.layout.VBox;
+
+import java.io.IOException;
 import java.net.URL;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.Arrays;
+import java.util.List;
 
 /**
- * Controlador para la vista de creación de pedidos (carrito de compras).
- * Permite seleccionar productos, añadir cantidades al carrito, y confirmar la orden.
+ * Controlador para la vista de creación de pedidos (carrito de compras) con vista de productos en Galería.
  */
 public class CreateOrderController implements Initializable {
 
-    // Componentes FXML de la Vista de Productos
-    @FXML private ListView<Product> productList;
+    // --- Componentes FXML de la VISTA DE GALERÍA ---
+    @FXML private ScrollPane productScrollPane;
+    @FXML private TilePane productTilePane;
+
+    // Dejamos quantityField y productMessageLabel para compatibilidad FXML
     @FXML private TextField quantityField;
     @FXML private Label productMessageLabel;
 
-    // Componentes FXML del Carrito
+    // Componentes FXML del Carrito (Se mantienen)
     @FXML private TableView<ProductInOrder> cartTable;
     @FXML private TableColumn<ProductInOrder, String> cartNameCol;
     @FXML private TableColumn<ProductInOrder, Double> cartPriceCol;
@@ -51,81 +58,98 @@ public class CreateOrderController implements Initializable {
     private final CreateOrderManager orderManager = new CreateOrderManager();
     private final ObservableList<ProductInOrder> cartItems = FXCollections.observableArrayList();
 
+
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        setupProductList();
+        setupProductGallery();
         setupCartTable();
 
-        // Conectar la lista del carrito a la tabla
         cartTable.setItems(cartItems);
 
-        // Escucha cambios en el carrito para recalcular el total
         cartItems.addListener((javafx.collections.ListChangeListener<ProductInOrder>) c -> calculateTotals());
+        calculateTotals();
     }
 
     /**
-     * Configura el ListView para mostrar los productos disponibles.
+     * Configura la vista de galería cargando dinámicamente las tarjetas de producto.
      */
-    private void setupProductList() {
+    private void setupProductGallery() {
         try {
-            // Cargar todos los productos activos
             ObservableList<Product> products = FXCollections.observableArrayList(productManager.getAllProducts());
-            productList.setItems(products);
+            productTilePane.getChildren().clear();
 
-            // Personaliza cómo se muestra cada celda (Producto + Imagen + Stock)
-            productList.setCellFactory(lv -> new ListCell<Product>() {
-                @Override
-                protected void updateItem(Product product, boolean empty) {
-                    super.updateItem(product, empty);
-                    if (empty || product == null) {
-                        setText(null);
-                        setGraphic(null);
-                        setStyle(null);
-                    } else {
-                        // Usamos un layout HBox para la celda
-                        HBox hBox = new HBox(10);
-                        hBox.setPadding(new javafx.geometry.Insets(10));
-                        hBox.setStyle("-fx-border-color: #ccc; -fx-border-radius: 5; -fx-background-color: #ffffff;");
-                        hBox.setSpacing(15);
+            // Rutas a intentar, de más específica a más genérica
+            List<String> pathsToTry = Arrays.asList(
+                    // 1. Ruta absoluta exacta que ha fallado (para depuración)
+                    "/customOrders/modules/customer/ProductCard.fxml",
+                    // 2. Ruta relativa dentro del paquete customOrders.Orders (si FXML está cerca)
+                    "ProductCard.fxml",
+                    // 3. Ruta más corta, asumiendo que "modules" es el punto de partida en resources
+                    "/modules/customer/ProductCard.fxml"
+            );
 
-                        // Generación de Placeholder de Imagen (debes reemplazar 'imageUrl' con tu URL real)
-                        ImageView imageView = new ImageView();
-                        String imageUrl = "https://placehold.co/80x80/007bff/white?text=P" + product.getProduct_id();
+            URL fxmlUrl = null;
+            String foundPath = null;
 
-                        try {
-                            Image image = new Image(imageUrl, 80, 80, true, true);
-                            imageView.setImage(image);
-                        } catch (Exception e) {
-                            imageView.setImage(new Image("https://placehold.co/80x80/cccccc/000000?text=No+Img"));
-                        }
-
-                        VBox infoBox = new VBox(5);
-                        Label nameLabel = new Label(product.getProduct_name());
-                        nameLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
-                        Label priceLabel = new Label(String.format("Precio: %.2f €", product.getUnit_price()));
-                        Label stockLabel = new Label("Stock: " + product.getQuantity());
-
-                        // Advertencia si el stock es bajo
-                        if (product.getQuantity() < 5) {
-                            stockLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
-                        } else {
-                            stockLabel.setStyle("-fx-text-fill: green;");
-                        }
-
-                        infoBox.getChildren().addAll(nameLabel, priceLabel, stockLabel);
-
-                        hBox.getChildren().addAll(imageView, infoBox);
-                        HBox.setHgrow(infoBox, Priority.ALWAYS); // Hacer que la caja de info crezca
-                        setGraphic(hBox);
-                    }
+            // Intentar cargar el recurso con las rutas definidas
+            for (String path : pathsToTry) {
+                fxmlUrl = getClass().getResource(path);
+                if (fxmlUrl != null) {
+                    foundPath = path;
+                    break;
                 }
-            });
+            }
+
+            // --- BLOQUE DE VERIFICACIÓN FINAL ---
+            if (fxmlUrl == null) {
+                System.err.println("---------------------------------------------------------");
+                System.err.println("--- ERROR DE RUTA CLASSPATH: FXML NO ENCONTRADO ---");
+                System.err.println("El archivo 'ProductCard.fxml' NO FUE ENCONTRADO en el classpath.");
+                System.err.println("Rutas FXML intentadas:");
+                for (String path : pathsToTry) {
+                    System.err.println(" - " + path);
+                }
+                System.err.println("Por favor, asegúrate de que el archivo existe en:");
+                System.err.println("  src/main/resources/customOrders/modules/customer/ProductCard.fxml");
+                System.err.println("  (O la ruta que corresponda a la clase ProductCardController)");
+                System.err.println("---------------------------------------------------------");
+                // Lanzamos la excepción para detener la ejecución y diagnosticar
+                throw new IllegalStateException("Location is not set. FXML not found after checking multiple paths.");
+            }
+            // System.out.println("Ruta FXML ENCONTRADA con éxito: " + foundPath);
+            // --- FIN BLOQUE DE VERIFICACIÓN ---
+
+
+            for (Product product : products) {
+                try {
+                    // Cargar el FXML de la tarjeta usando la URL encontrada
+                    FXMLLoader loader = new FXMLLoader(fxmlUrl);
+                    VBox productCard = loader.load();
+
+                    // Obtener el controlador de la tarjeta (campos @FXML ya inyectados)
+                    ProductCardController controller = loader.getController();
+
+                    // 1. Establecer la referencia al controlador principal
+                    controller.setMainController(this);
+
+                    // 2. Inicializar la tarjeta con los datos del producto (seguro de llamar)
+                    controller.setProductData(product);
+
+                    // Añadir la tarjeta al TilePane
+                    productTilePane.getChildren().add(productCard);
+
+                } catch (IOException e) {
+                    System.err.println("Error al cargar la tarjeta de producto para: " + product.getProduct_name());
+                    Dialogs.showErrorDialog("Error de Carga FXML", "Fallo al crear tarjeta de producto.", "Asegúrate de que 'ProductCard.fxml' tiene el controlador asignado y está bien formado.", e);
+                }
+            }
 
         } catch (SQLException e) {
-            // El ProductManager ya muestra un diálogo de error
+            Dialogs.showErrorDialog("Error de Carga", "Error al conectar con la base de datos.", "Fallo al cargar los productos iniciales.", e);
             orderMessageLabel.setText("ERROR: Fallo al cargar los productos iniciales.");
         }
     }
+
 
     /**
      * Configura las columnas de la TableView del carrito.
@@ -142,6 +166,7 @@ public class CreateOrderController implements Initializable {
             protected void updateItem(Double price, boolean empty) {
                 super.updateItem(price, empty);
                 setText(empty ? null : String.format("%.2f €", price));
+                setStyle(empty ? null : "-fx-alignment: CENTER_RIGHT;");
             }
         });
         cartTotalCol.setCellFactory(tc -> new TableCell<ProductInOrder, Double>() {
@@ -149,6 +174,7 @@ public class CreateOrderController implements Initializable {
             protected void updateItem(Double price, boolean empty) {
                 super.updateItem(price, empty);
                 setText(empty ? null : String.format("%.2f €", price));
+                setStyle(empty ? null : "-fx-alignment: CENTER_RIGHT; -fx-font-weight: bold;");
             }
         });
 
@@ -161,7 +187,7 @@ public class CreateOrderController implements Initializable {
                     ProductInOrder item = getTableView().getItems().get(getIndex());
                     handleRemoveFromCart(item);
                 });
-                removeButton.setStyle("-fx-background-color: #f44336; -fx-text-fill: white; -fx-cursor: hand;");
+                removeButton.setStyle("-fx-background-color: #f44336; -fx-text-fill: white; -fx-cursor: hand; -fx-padding: 3 6 3 6; -fx-background-radius: 5;");
             }
 
             @Override
@@ -170,10 +196,14 @@ public class CreateOrderController implements Initializable {
                 if (empty) {
                     setGraphic(null);
                 } else {
-                    setGraphic(removeButton);
+                    HBox box = new HBox(removeButton);
+                    box.setAlignment(Pos.CENTER);
+                    setGraphic(box);
                 }
             }
         });
+
+        cartTable.setItems(cartItems);
     }
 
     /**
@@ -195,41 +225,53 @@ public class CreateOrderController implements Initializable {
         placeOrderButton.setDisable(cartItems.isEmpty());
     }
 
+    // =========================================================================
+    // === MÉTODOS REQUERIDOS POR ProductCardController
+    // =========================================================================
+
+    /**
+     * Muestra un mensaje de notificación al usuario en la etiqueta de mensaje.
+     * @param message El mensaje a mostrar.
+     */
+    public void showMessage(String message) {
+        if (orderMessageLabel != null) {
+            orderMessageLabel.setText(message);
+        } else {
+            System.out.println("MENSAJE DE PEDIDO: " + message);
+        }
+    }
+
+    /**
+     * Wrapper para permitir que ProductCardController use un nombre de método simple.
+     * Reenvía la llamada a la lógica principal de manejo del carrito.
+     * @param product Producto a añadir.
+     * @param quantity Cantidad.
+     */
+    public void addToCart(Product product, int quantity) {
+        // Llama al método que contiene la lógica real de añadir al carrito.
+        addToCartFromCard(product, quantity);
+    }
+
+    // =========================================================================
+    // === FIN DE MÉTODOS REQUERIDOS
+    // =========================================================================
+
+
     // --- MANEJO DE EVENTOS ---
 
-    @FXML
-    private void handleAddToCart() {
-        Product selectedProduct = productList.getSelectionModel().getSelectedItem();
-        String quantityStr = quantityField.getText();
+    /**
+     * Añade o actualiza un producto en el carrito.
+     * Este método es llamado por el ProductCardController (a través del wrapper addToCart).
+     */
+    public void addToCartFromCard(Product selectedProduct, int quantity) {
 
-        productMessageLabel.setText(""); // Limpiar mensaje
-
-        if (selectedProduct == null) {
-            Dialogs.showWarningDialog("Advertencia de Producto", "Selección Requerida", "Selecciona un producto de la lista antes de añadirlo al carrito.");
-            return;
-        }
-
-        if (!Validator.isValidInteger(quantityStr)) {
-            Dialogs.showWarningDialog("Advertencia de Cantidad", "Formato Inválido", "La cantidad debe ser un número entero válido.");
-            return;
-        }
-
-        int quantity;
-        try {
-            quantity = Integer.parseInt(quantityStr);
-        } catch (NumberFormatException e) {
-            // Esto solo ocurriría si Validator fallara, pero es una buena práctica defensiva.
-            Dialogs.showWarningDialog("Advertencia de Cantidad", "Cantidad Inválida", "La cantidad ingresada no es válida.");
-            return;
-        }
-
-
+        // La validación de cantidad > 0 ya la hizo la tarjeta, pero se deja aquí por seguridad.
         if (quantity <= 0) {
             Dialogs.showWarningDialog("Advertencia de Cantidad", "Cantidad Mínima", "La cantidad a añadir debe ser mayor a cero.");
             return;
         }
 
-        // Obtener el stock disponible real (del objeto Product en la lista de productos)
+        // Obtener el stock disponible real
         int availableStock = selectedProduct.getQuantity();
 
         // Buscar si el producto ya está en el carrito
@@ -239,10 +281,14 @@ public class CreateOrderController implements Initializable {
 
         if (existingItem.isPresent()) {
             ProductInOrder item = existingItem.get();
-            int newQuantity = item.getQuantity() + quantity;
+            int currentQuantityInCart = item.getQuantity();
+            int newQuantity = currentQuantityInCart + quantity;
 
             // Re-checar el stock total si se agrega más
             if (newQuantity > availableStock) {
+                // Usamos showMessage para el feedback
+                showMessage("El total de unidades (" + newQuantity + ") excede el stock máximo disponible (" + availableStock + ").");
+                // Mantenemos el diálogo por si el showMessage solo actualiza una etiqueta
                 Dialogs.showWarningDialog("Stock Excedido", "Stock No Disponible",
                         "El total de unidades (" + newQuantity + ") excede el stock máximo disponible (" + availableStock + ").");
                 return;
@@ -251,8 +297,9 @@ public class CreateOrderController implements Initializable {
             cartTable.refresh(); // Refrescar la tabla para actualizar los totales del item
 
         } else {
-            // Si es un producto nuevo, checar stock
+            // Si es un producto nuevo, checar stock (aunque la tarjeta lo valida)
             if (quantity > availableStock) {
+                showMessage("Solo hay " + availableStock + " unidades en stock de este producto.");
                 Dialogs.showWarningDialog("Stock Excedido", "Stock No Disponible",
                         "Solo hay " + availableStock + " unidades en stock de este producto.");
                 return;
@@ -261,11 +308,10 @@ public class CreateOrderController implements Initializable {
             cartItems.add(new ProductInOrder(selectedProduct, quantity));
         }
 
-        // Opcional: limpiar el campo de cantidad
-        quantityField.setText("1");
         calculateTotals();
-        productMessageLabel.setText("Producto '" + selectedProduct.getProduct_name() + "' añadido/actualizado.");
+        // El mensaje de éxito lo maneja ProductCardController llamando a showMessage()
     }
+
 
     /**
      * Elimina un item del carrito.
@@ -273,7 +319,7 @@ public class CreateOrderController implements Initializable {
     private void handleRemoveFromCart(ProductInOrder item) {
         cartItems.remove(item);
         calculateTotals();
-        orderMessageLabel.setText("Producto '" + item.getProduct_name() + "' eliminado del carrito.");
+        showMessage("Producto '" + item.getProduct_name() + "' eliminado del carrito.");
     }
 
 
@@ -300,7 +346,6 @@ public class CreateOrderController implements Initializable {
             try {
                 totalAmount = Double.parseDouble(totalText);
             } catch (NumberFormatException e) {
-                // Uso del diálogo de error con 4 parámetros (incluyendo la excepción)
                 Dialogs.showErrorDialog("Error de Cálculo", "Monto Total Inválido",
                         "El monto total del carrito es inválido. Intenta re-añadir los productos.",
                         e);
@@ -314,12 +359,18 @@ public class CreateOrderController implements Initializable {
                 // Si la transacción fue exitosa, limpia el carrito y refresca la lista de productos
                 cartItems.clear();
                 calculateTotals();
-                setupProductList(); // Vuelve a cargar la lista para reflejar el stock reducido
-                orderMessageLabel.setText("¡Pedido creado con éxito! Stock y carrito reseteados.");
+                setupProductGallery(); // Vuelve a cargar la GALERÍA para reflejar el stock reducido
+                showMessage("¡Pedido creado con éxito! Stock actualizado y carrito reseteado.");
             } else {
-                // El error ya fue manejado dentro del Manager.
-                orderMessageLabel.setText("ERROR: No se pudo completar el pedido. Revisa los logs de la DB.");
+                showMessage("ERROR: No se pudo completar el pedido. Revisa los logs de la DB.");
             }
         }
+    }
+
+    // El handleAddToCart original se deja para evitar errores de inyección FXML,
+    // aunque la lógica real se mueve a las tarjetas.
+    @FXML
+    private void handleAddToCart() {
+        Dialogs.showWarningDialog("Añadir Global", "Método Obsoleto", "Por favor, usa los botones 'Añadir al Carrito' que se encuentran debajo de cada producto en la galería.");
     }
 }
