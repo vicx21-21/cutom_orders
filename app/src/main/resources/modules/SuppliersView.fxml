@@ -17,7 +17,7 @@
 
 
 <!-- Controlador: com.customOrders.Suppliers.SuppliersController (Ruta de Proveedores) -->
-<AnchorPane prefHeight="700.0" prefWidth="950.0" style="-fx-background-color: white;" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="main.java.com.customOrders.Suppliers.SuppliersController">
+<AnchorPane prefHeight="700.0" prefWidth="950.0" style="-fx-background-color: white;" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="customOrders.Suppliers.SuppliersController">
     <children>
         <SplitPane dividerPositions="0.6" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
             <items>

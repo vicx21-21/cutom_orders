@@ -15,7 +15,7 @@
 <?import javafx.scene.layout.VBox?>
 
 <!-- Asegúrate de que el fx:controller apunte a tu clase ClientController.java -->
-<AnchorPane prefHeight="600.0" prefWidth="900.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="main.java.com.customOrders.Clients.ClientController">
+<AnchorPane prefHeight="600.0" prefWidth="900.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="customOrders.Clients.ClientController">
     <SplitPane dividerPositions="0.4" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
 
         <!-- Lado Izquierdo: Tabla de Clientes (Ver todos) -->

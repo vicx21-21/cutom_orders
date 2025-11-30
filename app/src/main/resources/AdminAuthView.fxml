@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<VBox alignment="CENTER" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="450.0" prefWidth="700.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="customOrders.AdminAuthController">
+    <padding>
+        <Insets bottom="50.0" left="50.0" right="50.0" top="50.0" />
+    </padding>
+
+    <children>
+        <!-- Título principal de la tarjeta de autenticación -->
+        <Label text="Acceso al Panel de Administración">
+            <font>
+                <Font name="System Bold" size="22.0" />
+            </font>
+            <VBox.margin>
+                <Insets bottom="30.0" />
+            </VBox.margin>
+        </Label>
+
+        <!-- Contenedor del Formulario (GridPane) -->
+        <GridPane hgap="10.0" vgap="15.0" style="-fx-border-color: #ccc; -fx-border-radius: 8; -fx-padding: 20;">
+            <columnConstraints>
+                <!-- Columna 0: Etiquetas -->
+                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="120.0" />
+                <!-- Columna 1: Campos de texto -->
+                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="250.0" />
+            </columnConstraints>
+            <rowConstraints>
+                <!-- Fila 0: Usuario -->
+                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                <!-- Fila 1: Contraseña -->
+                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                <!-- Fila 2: Botón de Ingreso -->
+                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+            </rowConstraints>
+            <children>
+                <Label text="Usuario" />
+                <Label text="Contraseña" GridPane.rowIndex="1" />
+
+                <TextField fx:id="usuarioText" GridPane.columnIndex="1" />
+                <PasswordField fx:id="contraseñaText" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+                <!-- Botón de Ingreso, ahora en la Fila 2 -->
+                <Button mnemonicParsing="false" onAction="#ingresar" text="Ingresar" GridPane.columnIndex="1" GridPane.halignment="CENTER" GridPane.rowIndex="2" />
+            </children>
+            <padding>
+                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+            </padding>
+        </GridPane>
+
+        <!-- Botón para volver al login de clientes -->
+        <Button mnemonicParsing="false" onAction="#switchToCustomerLogin" text="Volver a Acceso de Clientes" style="-fx-background-color: transparent; -fx-text-fill: #3f51b5; -fx-underline: true;">
+            <VBox.margin>
+                <Insets top="20.0" />
+            </VBox.margin>
+        </Button>
+    </children>
+</VBox>
