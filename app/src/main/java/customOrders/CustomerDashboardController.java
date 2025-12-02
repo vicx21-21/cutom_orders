@@ -16,6 +16,9 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ResourceBundle;
 
+// 🚨 IMPORTACIÓN CORREGIDA: Ahora importa la interfaz desde su propio archivo
+import customOrders.CustomerAware;
+
 public class CustomerDashboardController implements Initializable {
 
     @FXML
@@ -46,6 +49,8 @@ public class CustomerDashboardController implements Initializable {
         if (customer != null) {
             welcomeLabel.setText("Bienvenido, " + customer.getFirstName() + ". Seleccione una opción del menú.");
             menuTitleLabel.setText(customer.getFirstName().toUpperCase() + "'S MENU");
+            // DEBUG para asegurar que el ID del cliente fue cargado en el Dashboard
+            System.out.println("DEBUG (Dashboard): Cliente ID cargado en Dashboard: " + customer.getCustomerID());
         }
     }
 
@@ -60,11 +65,11 @@ public class CustomerDashboardController implements Initializable {
 
         // 1. Determina qué botón fue presionado
         if (source.getId().equals("btnCrearOrden")) {
-            // Define la ruta al FXML para crear órdenes
-            fxmlFile = "modules/customer/CreateOrderView.fxml";
+            // 🛑 RUTA CORREGIDA: Usando la ubicación modules/resources/
+            fxmlFile = "/modules/customer/CreateOrderView.fxml";
         } else if (source.getId().equals("btnVerOrdenes")) {
-            // Define la ruta al FXML para ver órdenes
-            fxmlFile = "modules/customer/ViewOrdersView.fxml";
+            // Asumiendo una ruta similar para la vista de órdenes
+            fxmlFile = "/modules/customer/ViewOrdersView.fxml";
         }
 
         // 2. Carga el FXML en el StackPane
@@ -78,30 +83,54 @@ public class CustomerDashboardController implements Initializable {
      * Pasa el objeto Customer al controlador del módulo cargado.
      */
     private void loadFXMLToContent(String fxmlPath) {
+
+        // 1. Verificación Estricta del Cliente
         if (currentCustomer == null) {
-            welcomeLabel.setText("Error: No se ha identificado al cliente.");
+            welcomeLabel.setText("Error fatal: El cliente de la sesión es nulo.");
             return;
         }
 
+        // 2. Carga de la Vista
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/" + fxmlPath));
-            Node content = loader.load();
+            // CRÍTICO: Obtener el recurso URL primero y verificar si es nulo
+            URL fxmlUrl = getClass().getResource(fxmlPath);
 
-            // IMPORTANTE: Pasa el objeto Customer al controlador del módulo (si lo necesita)
-            // Asumimos que los controladores (ej. CreateOrderController) tienen un método setCustomer()
-            if (loader.getController() instanceof CustomerAware) {
-                ((CustomerAware) loader.getController()).setCustomer(currentCustomer);
+            if (fxmlUrl == null) {
+                // Si el recurso no se encuentra, lanzar una excepción informativa
+                throw new IOException("El archivo FXML no se encontró en la ruta: " + fxmlPath +
+                        ". Verifique la ruta en el classpath. (Path usado: " + fxmlPath + ")");
             }
 
+            // Continuar la carga si el URL es válido
+            FXMLLoader loader = new FXMLLoader(fxmlUrl);
+            Node content = loader.load();
+
+            // 3. Inyección del Cliente al Sub-Controlador
+            Object controller = loader.getController();
+
+            // Verifica que el controlador no sea nulo y que implemente la interfaz CustomerAware (ahora importada)
+            if (controller != null && controller instanceof CustomerAware) {
+                // 🚨 Esta es la línea crítica para inyectar el cliente
+                ((CustomerAware) controller).setCustomer(currentCustomer);
+                System.out.println("DEBUG (Dashboard): Cliente " + currentCustomer.getCustomerID() + " inyectado en " + controller.getClass().getSimpleName());
+            } else if (controller == null) {
+                System.err.println("Advertencia: El FXML " + fxmlPath + " se cargó, pero no se encontró el controlador (fx:controller missing).");
+            } else {
+                // Caso donde el controlador existe, pero no implementa CustomerAware
+                System.err.println("Advertencia: El controlador " + controller.getClass().getSimpleName() + " no implementa CustomerAware.");
+            }
+
+            // 4. Mostrar Contenido
             contentArea.getChildren().clear();
             contentArea.getChildren().add(content);
 
         } catch (IOException e) {
-            // Muestra un error si no puede encontrar el archivo del módulo
-            System.err.println("Error al cargar la vista: " + fxmlPath);
+            // Manejo de error si el FXML no existe o si falla la inicialización del controlador (la causa más común)
+            System.err.println("Error CRÍTICO al cargar la vista: " + fxmlPath);
             e.printStackTrace();
+
             contentArea.getChildren().clear();
-            Label errorLabel = new Label("ERROR: No se pudo cargar el módulo '" + fxmlPath + "'.");
+            Label errorLabel = new Label("ERROR CRÍTICO: No se pudo cargar el módulo '" + fxmlPath + "'. Revise la ruta o la estructura interna del FXML.");
             errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 16px;");
             contentArea.getChildren().add(errorLabel);
         }
@@ -128,13 +157,5 @@ public class CustomerDashboardController implements Initializable {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    /**
-     * Interfaz auxiliar para pasar el objeto Customer a los sub-controladores.
-     * Los controladores como 'CreateOrderController' deben implementar 'CustomerAware'.
-     */
-    public interface CustomerAware {
-        void setCustomer(Customer customer);
     }
 }

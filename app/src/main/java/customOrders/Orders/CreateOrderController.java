@@ -1,6 +1,10 @@
 package customOrders.Orders;
 
+import customOrders.Customer;
+import customOrders.CustomerAware;
 import customOrders.Products.ProductManager;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -30,18 +34,15 @@ import java.util.List;
 
 /**
  * Controlador para la vista de creación de pedidos (carrito de compras) con vista de productos en Galería.
+ * Implementa la solución de desconexión/reconexión del botón para manejar la doble instancia del controlador.
  */
-public class CreateOrderController implements Initializable {
+public class CreateOrderController implements Initializable, CustomerAware {
 
-    // --- Componentes FXML de la VISTA DE GALERÍA ---
+    // --- Componentes FXML ---
     @FXML private ScrollPane productScrollPane;
     @FXML private TilePane productTilePane;
-
-    // Dejamos quantityField y productMessageLabel para compatibilidad FXML
     @FXML private TextField quantityField;
     @FXML private Label productMessageLabel;
-
-    // Componentes FXML del Carrito (Se mantienen)
     @FXML private TableView<ProductInOrder> cartTable;
     @FXML private TableColumn<ProductInOrder, String> cartNameCol;
     @FXML private TableColumn<ProductInOrder, Double> cartPriceCol;
@@ -51,9 +52,12 @@ public class CreateOrderController implements Initializable {
     @FXML private Label totalItemsLabel;
     @FXML private Label grandTotalLabel;
     @FXML private Label orderMessageLabel;
+    // El botón es crítico para la reconexión programática
     @FXML private Button placeOrderButton;
 
     // Lógica de Negocio
+    // Uso de Property para un estado más robusto
+    private ObjectProperty<Integer> currentCustomerIdProperty = new SimpleObjectProperty<>();
     private final ProductManager productManager = new ProductManager();
     private final CreateOrderManager orderManager = new CreateOrderManager();
     private final ObservableList<ProductInOrder> cartItems = FXCollections.observableArrayList();
@@ -61,13 +65,48 @@ public class CreateOrderController implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
+        // 🛑 SOLUCIÓN CRÍTICA DE INSTANCIA:
+        // Desactivamos el manejo del botón en la inicialización (Instancia fantasma).
+        if (placeOrderButton != null) {
+            placeOrderButton.setOnAction(null);
+        }
+
         setupProductGallery();
         setupCartTable();
 
         cartTable.setItems(cartItems);
 
+        // Agregamos un listener para asegurar que los totales se calculan cada vez que el carrito cambia.
         cartItems.addListener((javafx.collections.ListChangeListener<ProductInOrder>) c -> calculateTotals());
-        calculateTotals();
+    }
+
+    // -------------------------------------------------------------------------
+    // 🎯 CAMBIO CRÍTICO: RECONEXIÓN DEL BOTÓN SOLO CUANDO EL ID ESTÁ DISPONIBLE
+    // -------------------------------------------------------------------------
+    @Override
+    public void setCustomer(Customer customer) {
+        if (customer != null) {
+            this.currentCustomerIdProperty.set(customer.getCustomerID());
+
+            // 💡 DEBUG: Verifica si el ID llegó a la instancia correcta del controlador
+            System.out.println("DEBUG (setCustomer): Cliente recibido y ID cargado: " + customer.getCustomerID());
+
+            showMessage("Cliente ID: " + this.currentCustomerIdProperty.get() + " cargado exitosamente.");
+
+            // ✅ RECONEXIÓN CRÍTICA: Solo esta instancia (la correcta)
+            // puede conectar la acción del botón.
+            if (placeOrderButton != null) {
+                placeOrderButton.setOnAction(event -> handlePlaceOrder());
+                System.out.println("DEBUG (setCustomer): Botón 'Place Order' reconectado programáticamente.");
+            }
+
+            // Recalculamos totales para habilitar el botón si ya hay algo en el carrito
+            calculateTotals();
+
+        } else {
+            this.currentCustomerIdProperty.set(null);
+            showMessage("Error: No se recibió objeto de cliente.");
+        }
     }
 
     /**
@@ -78,64 +117,31 @@ public class CreateOrderController implements Initializable {
             ObservableList<Product> products = FXCollections.observableArrayList(productManager.getAllProducts());
             productTilePane.getChildren().clear();
 
-            // Rutas a intentar, de más específica a más genérica
+            // Rutas de FXML (adaptar según sea necesario)
             List<String> pathsToTry = Arrays.asList(
-                    // 1. Ruta absoluta exacta que ha fallado (para depuración)
-                    "/customOrders/modules/customer/ProductCard.fxml",
-                    // 2. Ruta relativa dentro del paquete customOrders.Orders (si FXML está cerca)
-                    "ProductCard.fxml",
-                    // 3. Ruta más corta, asumiendo que "modules" es el punto de partida en resources
+                    "/customOrders/Orders/ProductCard.fxml",
                     "/modules/customer/ProductCard.fxml"
             );
 
             URL fxmlUrl = null;
-            String foundPath = null;
-
-            // Intentar cargar el recurso con las rutas definidas
             for (String path : pathsToTry) {
                 fxmlUrl = getClass().getResource(path);
                 if (fxmlUrl != null) {
-                    foundPath = path;
                     break;
                 }
             }
 
-            // --- BLOQUE DE VERIFICACIÓN FINAL ---
             if (fxmlUrl == null) {
-                System.err.println("---------------------------------------------------------");
-                System.err.println("--- ERROR DE RUTA CLASSPATH: FXML NO ENCONTRADO ---");
-                System.err.println("El archivo 'ProductCard.fxml' NO FUE ENCONTRADO en el classpath.");
-                System.err.println("Rutas FXML intentadas:");
-                for (String path : pathsToTry) {
-                    System.err.println(" - " + path);
-                }
-                System.err.println("Por favor, asegúrate de que el archivo existe en:");
-                System.err.println("  src/main/resources/customOrders/modules/customer/ProductCard.fxml");
-                System.err.println("  (O la ruta que corresponda a la clase ProductCardController)");
-                System.err.println("---------------------------------------------------------");
-                // Lanzamos la excepción para detener la ejecución y diagnosticar
-                throw new IllegalStateException("Location is not set. FXML not found after checking multiple paths.");
+                throw new IllegalStateException("FXML 'ProductCard.fxml' not found.");
             }
-            // System.out.println("Ruta FXML ENCONTRADA con éxito: " + foundPath);
-            // --- FIN BLOQUE DE VERIFICACIÓN ---
-
 
             for (Product product : products) {
                 try {
-                    // Cargar el FXML de la tarjeta usando la URL encontrada
                     FXMLLoader loader = new FXMLLoader(fxmlUrl);
                     VBox productCard = loader.load();
-
-                    // Obtener el controlador de la tarjeta (campos @FXML ya inyectados)
                     ProductCardController controller = loader.getController();
-
-                    // 1. Establecer la referencia al controlador principal
                     controller.setMainController(this);
-
-                    // 2. Inicializar la tarjeta con los datos del producto (seguro de llamar)
                     controller.setProductData(product);
-
-                    // Añadir la tarjeta al TilePane
                     productTilePane.getChildren().add(productCard);
 
                 } catch (IOException e) {
@@ -211,28 +217,27 @@ public class CreateOrderController implements Initializable {
      */
     private void calculateTotals() {
         int totalItems = 0;
-        double grandTotal = 0.0;
+        double subtotal = 0.0;
+        final double TAX_RATE = 0.21;
 
         for (ProductInOrder item : cartItems) {
             totalItems += item.getQuantity();
-            grandTotal += item.getTotalPrice();
+            subtotal += item.getTotalPrice();
         }
+
+        double tax = subtotal * TAX_RATE;
+        double grandTotal = subtotal + tax;
 
         totalItemsLabel.setText(String.valueOf(totalItems));
         grandTotalLabel.setText(String.format("%.2f €", grandTotal));
 
-        // Habilita/Deshabilita el botón de ordenar si el carrito está vacío
-        placeOrderButton.setDisable(cartItems.isEmpty());
+        // 🚨 Habilitación del Botón: DOS condiciones
+        if (placeOrderButton != null) {
+            // El botón se habilita si NO está vacío AND el ID del cliente fue cargado (no es null)
+            placeOrderButton.setDisable(cartItems.isEmpty() || currentCustomerIdProperty.get() == null);
+        }
     }
 
-    // =========================================================================
-    // === MÉTODOS REQUERIDOS POR ProductCardController
-    // =========================================================================
-
-    /**
-     * Muestra un mensaje de notificación al usuario en la etiqueta de mensaje.
-     * @param message El mensaje a mostrar.
-     */
     public void showMessage(String message) {
         if (orderMessageLabel != null) {
             orderMessageLabel.setText(message);
@@ -240,41 +245,29 @@ public class CreateOrderController implements Initializable {
             System.out.println("MENSAJE DE PEDIDO: " + message);
         }
     }
+    private String requestShippingAddress() {
+        TextInputDialog dialog = new TextInputDialog("");
+        dialog.setTitle("Dirección de Envío");
+        dialog.setHeaderText("Ingrese la Dirección de Envío para el Pedido");
+        dialog.setContentText("Dirección:");
+        Optional<String> result = dialog.showAndWait();
+        return result.orElse(null);
+    }
 
-    /**
-     * Wrapper para permitir que ProductCardController use un nombre de método simple.
-     * Reenvía la llamada a la lógica principal de manejo del carrito.
-     * @param product Producto a añadir.
-     * @param quantity Cantidad.
-     */
     public void addToCart(Product product, int quantity) {
-        // Llama al método que contiene la lógica real de añadir al carrito.
         addToCartFromCard(product, quantity);
     }
 
-    // =========================================================================
-    // === FIN DE MÉTODOS REQUERIDOS
-    // =========================================================================
 
-
-    // --- MANEJO DE EVENTOS ---
-
-    /**
-     * Añade o actualiza un producto en el carrito.
-     * Este método es llamado por el ProductCardController (a través del wrapper addToCart).
-     */
     public void addToCartFromCard(Product selectedProduct, int quantity) {
 
-        // La validación de cantidad > 0 ya la hizo la tarjeta, pero se deja aquí por seguridad.
         if (quantity <= 0) {
             Dialogs.showWarningDialog("Advertencia de Cantidad", "Cantidad Mínima", "La cantidad a añadir debe ser mayor a cero.");
             return;
         }
 
-        // Obtener el stock disponible real
         int availableStock = selectedProduct.getQuantity();
 
-        // Buscar si el producto ya está en el carrito
         Optional<ProductInOrder> existingItem = cartItems.stream()
                 .filter(item -> item.getProduct().getProduct_id().equals(selectedProduct.getProduct_id()))
                 .findFirst();
@@ -284,38 +277,29 @@ public class CreateOrderController implements Initializable {
             int currentQuantityInCart = item.getQuantity();
             int newQuantity = currentQuantityInCart + quantity;
 
-            // Re-checar el stock total si se agrega más
             if (newQuantity > availableStock) {
-                // Usamos showMessage para el feedback
                 showMessage("El total de unidades (" + newQuantity + ") excede el stock máximo disponible (" + availableStock + ").");
-                // Mantenemos el diálogo por si el showMessage solo actualiza una etiqueta
                 Dialogs.showWarningDialog("Stock Excedido", "Stock No Disponible",
                         "El total de unidades (" + newQuantity + ") excede el stock máximo disponible (" + availableStock + ").");
                 return;
             }
             item.setQuantity(newQuantity);
-            cartTable.refresh(); // Refrescar la tabla para actualizar los totales del item
+            cartTable.refresh();
 
         } else {
-            // Si es un producto nuevo, checar stock (aunque la tarjeta lo valida)
             if (quantity > availableStock) {
                 showMessage("Solo hay " + availableStock + " unidades en stock de este producto.");
                 Dialogs.showWarningDialog("Stock Excedido", "Stock No Disponible",
                         "Solo hay " + availableStock + " unidades en stock de este producto.");
                 return;
             }
-            // Agregar nuevo item al carrito
             cartItems.add(new ProductInOrder(selectedProduct, quantity));
         }
 
         calculateTotals();
-        // El mensaje de éxito lo maneja ProductCardController llamando a showMessage()
     }
 
 
-    /**
-     * Elimina un item del carrito.
-     */
     private void handleRemoveFromCart(ProductInOrder item) {
         cartItems.remove(item);
         calculateTotals();
@@ -328,19 +312,41 @@ public class CreateOrderController implements Initializable {
      */
     @FXML
     private void handlePlaceOrder() {
-        if (cartItems.isEmpty()) {
-            Dialogs.showWarningDialog("Carrito Vacío", "No se puede continuar.", "Debes añadir al menos un producto para crear la orden.");
+
+        Integer customerId = this.currentCustomerIdProperty.get();
+
+        // 💡 DEBUG: Esta es la línea que DEBE aparecer si el botón está correctamente conectado y pulsado.
+        System.out.println("DEBUG: currentCustomerId al hacer click: " + customerId);
+
+        // 1. VERIFICACIÓN CRÍTICA: ID del cliente
+        if (customerId == null) {
+            Dialogs.showErrorDialog("Error de Sesión", "Cliente no identificado.",
+                    "No se puede crear la orden. El ID del cliente no se cargó correctamente.");
             return;
         }
 
-        // Usar el método showConfirmationDialog
+        // 2. VERIFICACIÓN DEL CARRITO
+        if (cartItems.isEmpty()) {
+            Dialogs.showWarningDialog("Carrito Vacío", "No se puede continuar.",
+                    "Debes añadir al menos un producto para crear la orden.");
+            return;
+        }
+
+        // 3. RECOLECCIÓN DE DATOS (shippingAddress)
+        String shippingAddress = requestShippingAddress();
+
+        if (shippingAddress == null || shippingAddress.trim().isEmpty()) {
+            Dialogs.showWarningDialog("Dirección Requerida", "Falta Información",
+                    "Debe ingresar una dirección de envío válida para continuar.");
+            return;
+        }
+
         Optional<ButtonType> result = Dialogs.showConfirmationDialog("Confirmar Pedido",
                 "Revisión Final",
                 "¿Estás seguro de que quieres crear el pedido por el monto total de " + grandTotalLabel.getText() + "?");
 
         if (result.isPresent() && result.get() == ButtonType.OK) {
 
-            // Parsear el monto total
             String totalText = grandTotalLabel.getText().replace(" €", "").replace(",", ".");
             double totalAmount;
             try {
@@ -352,14 +358,17 @@ public class CreateOrderController implements Initializable {
                 return;
             }
 
-            // Intentar crear el pedido y actualizar el stock
-            boolean success = orderManager.createOrderAndUpdateStock(cartItems, totalAmount);
+            boolean success = orderManager.createOrderAndUpdateStock(
+                    cartItems,
+                    customerId,
+                    shippingAddress,
+                    totalAmount
+            );
 
             if (success) {
-                // Si la transacción fue exitosa, limpia el carrito y refresca la lista de productos
                 cartItems.clear();
                 calculateTotals();
-                setupProductGallery(); // Vuelve a cargar la GALERÍA para reflejar el stock reducido
+                setupProductGallery();
                 showMessage("¡Pedido creado con éxito! Stock actualizado y carrito reseteado.");
             } else {
                 showMessage("ERROR: No se pudo completar el pedido. Revisa los logs de la DB.");
@@ -367,10 +376,9 @@ public class CreateOrderController implements Initializable {
         }
     }
 
-    // El handleAddToCart original se deja para evitar errores de inyección FXML,
-    // aunque la lógica real se mueve a las tarjetas.
     @FXML
     private void handleAddToCart() {
         Dialogs.showWarningDialog("Añadir Global", "Método Obsoleto", "Por favor, usa los botones 'Añadir al Carrito' que se encuentran debajo de cada producto en la galería.");
     }
+
 }
