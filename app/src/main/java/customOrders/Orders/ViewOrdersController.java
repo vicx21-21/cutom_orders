@@ -9,7 +9,10 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
 // Importaciones para Base de Datos
-import customOrders.PostgresConnector; // Se asume que esta clase proporciona la conexión
+import customOrders.PostgresConnector;
+import customOrders.Products.Product; // Necesario para la entidad Producto
+import customOrders.CustomerAware; // *** IMPORTACIÓN CORREGIDA ***
+import customOrders.Customer; // Importación a la raíz
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -20,16 +23,14 @@ import java.util.ResourceBundle;
 
 /**
  * Controlador para la vista de historial de órdenes del cliente.
- * La lógica de acceso a la base de datos (DB) se encuentra directamente en esta clase,
- * sin utilizar OrderManager.
- * Muestra el resumen de órdenes (Order) y el detalle de ítems (OrderItem).
+ * Muestra el resumen de órdenes (Order) y el detalle de ítems (ProductInOrder).
  */
-public class ViewOrdersController implements Initializable {
+public class ViewOrdersController implements Initializable, CustomerAware {
 
     private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     // ID del cliente actual (fijo para prueba)
-    private static final int CURRENT_CUSTOMER_ID = 101;
+    private int currentCustomerId;
 
     // Lista de datos para la tabla principal
     private ObservableList<Order> orderData;
@@ -41,18 +42,29 @@ public class ViewOrdersController implements Initializable {
     @FXML private TableColumn<Order, String> statusColumn;
     @FXML private TableColumn<Order, Double> totalColumn;
 
-    // --- FXML Fields: Sección de Detalles del Pedido (OrderItem) ---
+    // --- FXML Fields: Sección de Detalles del Pedido (ProductInOrder) ---
     @FXML private Label orderDetailsTitle;
     @FXML private Label orderIdDetailLabel;
 
-    // Usando su clase OrderItem
-    @FXML private TableView<OrderItem> itemsTable;
-    @FXML private TableColumn<OrderItem, String> itemNameColumn;
-    @FXML private TableColumn<OrderItem, Integer> itemQuantityColumn;
-    @FXML private TableColumn<OrderItem, Double> itemUnitPriceColumn;
-    @FXML private TableColumn<OrderItem, Double> itemSubtotalColumn;
+    // Usando su clase ProductInOrder para los detalles
+    @FXML private TableView<ProductInOrder> itemsTable;
+    @FXML private TableColumn<ProductInOrder, String> itemNameColumn;
+    @FXML private TableColumn<ProductInOrder, Integer> itemQuantityColumn;
+    @FXML private TableColumn<ProductInOrder, Double> itemUnitPriceColumn;
+    @FXML private TableColumn<ProductInOrder, Double> itemSubtotalColumn;
 
     @FXML private Label messageLabel;
+
+    /**
+     * Implementación del método de la interfaz CustomerAware.
+     * Este es el punto de entrada para inyectar el ID del cliente.
+     */
+    @Override
+    public void setCustomer(Customer customer) {
+        this.currentCustomerId = customer.getCustomerID(); // Getter corregido: getCustomerID()
+        // 5. Carga inicial de datos para el cliente inyectado
+        loadCustomerOrders(this.currentCustomerId);
+    }
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
@@ -71,11 +83,21 @@ public class ViewOrdersController implements Initializable {
         dateColumn.setCellFactory(column -> new FormattedTableCellFactory<>(dateFormatter));
         totalColumn.setCellFactory(column -> new CurrencyCellFactory<>());
 
-        // 3. Configuración de Columnas de Detalle de Ítems (OrderItem)
-        itemNameColumn.setCellValueFactory(new PropertyValueFactory<>("productName"));
+        // 3. Configuración de Columnas de Detalle de Ítems (ProductInOrder)
+
+        // Mapeo del nombre del producto (requiere acceder a Product dentro de ProductInOrder)
+        itemNameColumn.setCellValueFactory(cellData -> {
+            String name = cellData.getValue().getProduct().getProduct_name();
+            return new javafx.beans.property.SimpleStringProperty(name);
+        });
+
         itemQuantityColumn.setCellValueFactory(new PropertyValueFactory<>("quantity"));
-        itemUnitPriceColumn.setCellValueFactory(new PropertyValueFactory<>("unitPrice"));
-        itemSubtotalColumn.setCellValueFactory(new PropertyValueFactory<>("subtotal"));
+
+        // CORRECCIÓN: Usar getUnit_price() del modelo ProductInOrder
+        itemUnitPriceColumn.setCellValueFactory(new PropertyValueFactory<>("unit_price"));
+
+        // Mapeamos el subtotal a getTotalPrice() de ProductInOrder
+        itemSubtotalColumn.setCellValueFactory(new PropertyValueFactory<>("totalPrice"));
 
         itemUnitPriceColumn.setCellFactory(column -> new CurrencyCellFactory<>());
         itemSubtotalColumn.setCellFactory(column -> new CurrencyCellFactory<>());
@@ -84,15 +106,15 @@ public class ViewOrdersController implements Initializable {
         ordersTable.getSelectionModel().selectedItemProperty().addListener(
                 (observable, oldValue, newValue) -> showOrderDetails(newValue));
 
-        // 5. Carga inicial de datos para el cliente por defecto
-        loadCustomerOrders(CURRENT_CUSTOMER_ID);
+        // NOTA: La carga inicial de datos (loadCustomerOrders) se movió al método setCustomer(int customerId)
+        // para asegurar que el ID del cliente haya sido inyectado antes de consultar la DB.
 
         orderDetailsTitle.setText("Seleccione un Pedido en la tabla superior.");
+        orderIdDetailLabel.setText("Esperando ID de Cliente...");
     }
 
     /**
      * Obtiene el listado de todos los pedidos (Order) de un cliente específico.
-     * MÉTODOS DE DB MOVIDOS DIRECTAMENTE AL CONTROLADOR.
      */
     private List<Order> getOrdersByCustomer(int customerId) throws SQLException {
         List<Order> orders = new ArrayList<>();
@@ -113,16 +135,16 @@ public class ViewOrdersController implements Initializable {
                     String status = rs.getString("order_status");
                     String address = rs.getString("shipping_address");
 
-                    // Order requiere una lista de ítems en el constructor. Para la vista de resumen,
-                    // la dejamos vacía y confiamos en el total_amount de la BD.
+                    // Llamando al constructor de 6 parámetros de Order: (id, customer_id, date, status, address, items)
                     Order order = new Order(
                             orderId,
                             customerId,
                             dateOfOrder,
                             status,
                             address,
-                            new ArrayList<>()
+                            new ArrayList<>() // Lista vacía de ProductInOrder
                     );
+
                     orders.add(order);
                 }
             }
@@ -131,14 +153,13 @@ public class ViewOrdersController implements Initializable {
     }
 
     /**
-     * Obtiene los ítems detallados (OrderItem) para una orden específica.
-     * MÉTODOS DE DB MOVIDOS DIRECTAMENTE AL CONTROLADOR.
+     * Obtiene los ítems detallados (ProductInOrder) para una orden específica.
      */
-    private List<OrderItem> getItemsForOrder(int orderId) throws SQLException {
-        List<OrderItem> items = new ArrayList<>();
+    private List<ProductInOrder> getItemsForOrder(int orderId) throws SQLException {
+        List<ProductInOrder> items = new ArrayList<>();
 
-        // Une products_in_the_order con products para obtener el nombre y el precio unitario
-        String sql = "SELECT pio.product_quantity, p.product_name, p.unit_price " +
+        // Traemos el precio histórico (pio.item_unit_price) para garantizar precisión
+        String sql = "SELECT pio.product_id, pio.product_quantity, pio.item_unit_price, p.product_name " +
                 "FROM products_in_the_order pio " +
                 "JOIN products p ON pio.product_id = p.product_id " +
                 "WHERE pio.order_id = ?";
@@ -150,12 +171,27 @@ public class ViewOrdersController implements Initializable {
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
+                    int productId = rs.getInt("product_id");
                     String productName = rs.getString("product_name");
                     int quantityOrdered = rs.getInt("product_quantity");
-                    double unitPrice = rs.getDouble("unit_price");
+                    double historicalUnitPrice = rs.getDouble("item_unit_price"); // Precio registrado en la venta
 
-                    // Crea OrderItem (el subtotal se calcula dentro de OrderItem)
-                    OrderItem item = new OrderItem(productName, quantityOrdered, unitPrice);
+                    // 1. Crear el objeto Producto TEMPORAL (con el constructor de 14 argumentos).
+                    // Inyectamos el precio histórico en el campo unit_price para que ProductInOrder lo use.
+                    // Los demás campos se dejan en null/placeholder.
+                    Product product = new Product(
+                            productId,              // product_id
+                            null,                   // product_type_code
+                            null,                   // supplier_id
+                            productName,            // product_name
+                            historicalUnitPrice,    // <<< ¡CLAVE! Usamos el precio histórico aquí
+                            null, null, null, null, // description, reorder_level, reorder_quantity, other_details
+                            null, null, null, null, // weight_kg, date_added, is_active, quantity
+                            null                    // image_url
+                    );
+
+                    // 2. Crear ProductInOrder (usará el precio inyectado en el objeto Product).
+                    ProductInOrder item = new ProductInOrder(product, quantityOrdered);
                     items.add(item);
                 }
             }
@@ -170,21 +206,23 @@ public class ViewOrdersController implements Initializable {
         try {
             orderData.setAll(getOrdersByCustomer(customerId));
             setMessage("Pedidos cargados para el Cliente ID: " + customerId + ". Total: " + orderData.size(), false);
+            orderIdDetailLabel.setText("Órdenes cargadas para el Cliente ID: " + customerId);
         } catch (SQLException e) {
-            setMessage("ERROR al cargar los pedidos. Verifique la conexión DB y OrderItem/Order.", true);
+            setMessage("ERROR al cargar los pedidos. Verifique la conexión DB y modelos de datos. Mensaje: " + e.getMessage(), true);
             e.printStackTrace();
             orderData.clear();
         }
     }
 
     /**
-     * Carga y muestra los ítems de detalle (OrderItem) de la orden seleccionada.
+     * Carga y muestra los ítems de detalle (ProductInOrder) de la orden seleccionada.
      */
     private void showOrderDetails(Order order) {
         if (order != null) {
             try {
-                // Llama al método DB interno
-                List<OrderItem> items = getItemsForOrder(order.getOrder_id());
+                // 1. Cargar ítems y actualizar el modelo Order
+                List<ProductInOrder> items = getItemsForOrder(order.getOrder_id());
+                order.setItems(items); // Esto asegura que el total_amount de la orden se recalcule correctamente
                 itemsTable.getItems().setAll(items);
 
                 // Actualizar etiquetas con detalles de la orden
@@ -194,6 +232,7 @@ public class ViewOrdersController implements Initializable {
                                 dateFormatter.format(order.getDate_of_order()),
                                 order.getOrder_status(),
                                 order.getShipping_address(),
+                                // Llama a calculateTotal() dentro del modelo Order.
                                 order.getTotal_amount()));
                 setMessage("Detalles del Pedido " + order.getOrder_id() + " cargados.", false);
 
@@ -206,7 +245,7 @@ public class ViewOrdersController implements Initializable {
         } else {
             // Limpiar la vista si no hay selección
             orderDetailsTitle.setText("Seleccione un Pedido para ver el Contenido");
-            orderIdDetailLabel.setText("Órdenes cargadas para el Cliente ID: " + CURRENT_CUSTOMER_ID);
+            orderIdDetailLabel.setText("Órdenes cargadas para el Cliente ID: " + currentCustomerId);
             itemsTable.getItems().clear();
             setMessage("", false);
         }
