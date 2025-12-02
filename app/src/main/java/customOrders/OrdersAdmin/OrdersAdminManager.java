@@ -6,10 +6,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * OrdersAdminManager: Capa de Lógica de Negocio.
- * - CUARTO INTENTO DE CORRECCIÓN: Ahora utiliza "CLOSED" (CERRADO) y "PENDING" (PENDIENTE)
- * para el estado final, asumiendo que el valor esperado por la restricción chk_order_status
- * es un término técnico en inglés.
+ * OrdersAdminManager: Capa de Lógica de Negocio que interactúa con PostgreSQL.
+ * Este manager contiene las clases de datos y la lógica para interactuar con
+ * la base de datos (carga, creación y actualización de pedidos/clientes).
  */
 public class OrdersAdminManager {
 
@@ -168,10 +167,10 @@ public class OrdersAdminManager {
                 products.add(new AvailableProduct(
                         rs.getInt("product_id"),
                         rs.getString("product_name"),
-                        (double) rs.getFloat("unit_price")));
+                        rs.getDouble("unit_price")));
             }
         } catch (SQLException ex) {
-            System.err.println("ERROR Manager al cargar productos: " + ex.getMessage());
+            System.err.println("ERROR Manager: Fallo al cargar productos. Mensaje de SQL: " + ex.getMessage());
             throw new RuntimeException("Fallo en la DB al cargar productos.", ex);
         }
         return products;
@@ -196,7 +195,8 @@ public class OrdersAdminManager {
                         rs.getString("address")));
             }
         } catch (SQLException ex) {
-            System.err.println("ERROR Manager al cargar clientes: " + ex.getMessage());
+            // IMPRESIÓN MEJORADA para diagnóstico
+            System.err.println("ERROR Manager: Fallo crítico al cargar clientes. Revisa conexión o tabla 'customers'. Mensaje de SQL: " + ex.getMessage());
             throw new RuntimeException("Fallo en la DB al cargar clientes.", ex);
         }
         return customers;
@@ -231,7 +231,7 @@ public class OrdersAdminManager {
                 ));
             }
         } catch (SQLException ex) {
-            System.err.println("ERROR Manager al cargar pedidos: " + ex.getMessage());
+            System.err.println("ERROR Manager: Fallo al cargar pedidos. Mensaje de SQL: " + ex.getMessage());
             throw new RuntimeException("Fallo en la DB al cargar pedidos.", ex);
         }
         return orders;
@@ -267,39 +267,14 @@ public class OrdersAdminManager {
 
     /**
      * Actualiza el estado de un pedido en la DB.
-     * Estándar final: Si se intenta "Completar", se envía "CLOSED" (CERRADO).
-     * Si se intenta "Pendiente", se envía "PENDING".
      */
     public boolean updateOrderStatus(int orderId, String newStatus) {
-        String statusToSend = null;
-
-        if (newStatus != null) {
-            String normalizedStatus = newStatus.trim().toLowerCase();
-
-            // Mapeo estricto a los valores permitidos por la DB
-            if (normalizedStatus.contains("completa") || normalizedStatus.contains("entrega") || normalizedStatus.contains("closed")) {
-                statusToSend = "Entregado"; // Valor técnico/funcional para COMPLETADO/CERRADO
-            } else if (normalizedStatus.contains("procesa")) {
-                statusToSend = "Procesando";
-            } else if (normalizedStatus.contains("envia") || normalizedStatus.contains("shipped")) {
-                statusToSend = "Enviado";
-            } else if (normalizedStatus.contains("cancela")) {
-                statusToSend = "Cancelado";
-            } else if (normalizedStatus.contains("pendient") || normalizedStatus.contains("pending")) {
-                statusToSend = "Pendiente";
-            }
-            // Si no se encuentra una coincidencia clara, se usa el estado original si es válido
-            else {
-                // Si el estado entrante es exactamente uno de los valores válidos, lo usamos.
-                // En un sistema robusto, se debería validar contra la lista estricta.
-                statusToSend = newStatus;
-            }
-        }
-
-        if (statusToSend == null) {
-            System.err.println("ERROR Manager: El nuevo estado (" + newStatus + ") no pudo ser mapeado a un valor válido.");
+        if (newStatus == null || newStatus.trim().isEmpty()) {
+            System.err.println("ERROR Manager: El nuevo estado no puede estar vacío.");
             return false;
         }
+
+        String statusToSend = newStatus.trim();
 
         System.out.println("DEBUG: Enviando estado a DB: " + statusToSend);
 
@@ -310,20 +285,13 @@ public class OrdersAdminManager {
             pstmt.setInt(2, orderId);
             return pstmt.executeUpdate() > 0;
         } catch (SQLException ex) {
-            // El error de restricción ocurrirá aquí si el mapeo fue incorrecto
-            System.err.println("ERROR Manager al actualizar estado: " + ex.getMessage());
+            System.err.println("ERROR Manager al actualizar estado. Valor enviado: " + statusToSend + ". Mensaje SQL: " + ex.getMessage());
             return false;
         }
     }
+
     /**
      * Crea un nuevo pedido y sus ítems en una transacción.
-     */
-    /**
-     * Crea un nuevo pedido y sus ítems en una transacción.
-     */
-    /**
-     * Crea un nuevo pedido y sus ítems en una transacción.
-     * Se ha modificado para calcular y enviar el 'total_amount' a la DB.
      */
     public int createNewOrder(String customerName, String date, String shippingAddress, List<OrderItem> items) {
         Connection conn = null;
@@ -333,17 +301,17 @@ public class OrdersAdminManager {
         // 1. Calcular el total_amount (total de la orden)
         double totalAmount = 0.0;
         for (OrderItem item : items) {
-            // Asegúrate de que OrderItem tiene los métodos getQuantity() y getUnitPrice()
             totalAmount += item.getQuantity() * item.getUnitPrice();
         }
 
-        System.out.println("DEBUG: Monto total calculado: " + totalAmount); // Debug para verificar
+        System.out.println("DEBUG: Monto total calculado: " + totalAmount);
 
         try {
             conn = PostgresConnector.getConnection();
             conn.setAutoCommit(false); // Iniciar Transacción
 
             // 2. Insertar cliente (o encontrar ID)
+            // Asume que el nombre está en formato "Nombre Apellido Apellido2"
             String[] parts = customerName.split(" ", 2);
             String firstName = parts[0];
             String lastName = (parts.length > 1) ? parts[1] : "";
@@ -351,16 +319,12 @@ public class OrdersAdminManager {
             newCustomerId = findOrCreateCustomer(conn, firstName, lastName, shippingAddress);
 
             // 3. Insertar Pedido principal
-            // ¡IMPORTANTE! Se añade 'total_amount' al INSERT SQL.
             String SQL_ORDER = "INSERT INTO orders (customer_id, date_of_order, order_status, total_amount, shipping_address) VALUES (?, ?, ?, ?, ?) RETURNING order_id";
             try (PreparedStatement pstmt = conn.prepareStatement(SQL_ORDER)) {
                 pstmt.setInt(1, newCustomerId);
                 pstmt.setDate(2, Date.valueOf(date));
-                pstmt.setString(3, "Pendiente"); // Usando el valor válido para la restricción CHECK
-
-                // ¡MODIFICACIÓN CLAVE! Asignar el total_amount calculado
+                pstmt.setString(3, "Pendiente"); // Estado inicial
                 pstmt.setDouble(4, totalAmount);
-
                 pstmt.setString(5, shippingAddress);
 
                 ResultSet rs = pstmt.executeQuery();
@@ -393,7 +357,7 @@ public class OrdersAdminManager {
             return newOrderId;
 
         } catch (SQLException ex) {
-            System.err.println("ERROR Manager al crear pedido: " + ex.getMessage());
+            System.err.println("ERROR Manager al crear pedido (Transacción fallida). Mensaje SQL: " + ex.getMessage());
             if (conn != null) {
                 try {
                     conn.rollback();

@@ -9,7 +9,6 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
-
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -19,12 +18,10 @@ import java.util.List;
  * OrdersAdminController: Capa de Presentación y Control.
  * Maneja la interacción del usuario y actualiza la vista,
  * utilizando OrdersAdminManager para la lógica de negocio.
- *
- * NOTA: Usa los métodos getter (e.g., getOrderId()) de las clases tradicionales.
  */
 public class OrdersAdminController {
 
-    // --- Componentes FXML (Sincronizados con OrdersAdminView.fxml) ---
+    // --- Componentes FXML ---
 
     // TABLA PRINCIPAL DE PEDIDOS
     @FXML private TableView<Order> ordersTable;
@@ -47,7 +44,7 @@ public class OrdersAdminController {
     @FXML private TableView<OrderItem> newOrderItemsTable;
     @FXML private TableColumn<OrderItem, String> newItemProductCol;
     @FXML private TableColumn<OrderItem, Integer> newItemQuantityCol;
-    @FXML private TableColumn<OrderItem, Double> newItemPriceCol; // Esta columna muestra el subtotal
+    @FXML private TableColumn<OrderItem, Double> newItemPriceCol;
     @FXML private Label totalLabel;
     @FXML private Button placeOrderButton;
 
@@ -75,21 +72,62 @@ public class OrdersAdminController {
         setupProductCreationControls();
     }
 
+    /**
+     * Mapea el estado de la DB (Español, Title Case: 'Pendiente') a la visualización en español.
+     * Mapeamos 'Entregado' de la DB a 'Completado' para la UI.
+     */
+    private String mapDbStatusToDisplayStatus(String dbStatus) {
+        if (dbStatus == null) return "Desconocido";
+
+        // El mapeo de la UI debe coincidir con los valores mostrados en el ComboBox y la tabla
+        return switch (dbStatus.trim()) {
+            case "Pendiente" -> "Pendiente";
+            case "Procesando" -> "Procesando";
+            case "Enviado" -> "Enviado";
+            case "Entregado" -> "Completado"; // Mapeamos 'Entregado' de DB a 'Completado' para la UI
+            case "Cancelado" -> "Cancelado";
+            default -> dbStatus;
+        };
+    }
+
+    /**
+     * Mapea el estado de la visualización en español al valor EXACTO requerido por la DB.
+     * Mapeamos 'Completado' de la UI al valor de la DB 'Entregado'.
+     */
+    private String mapDisplayStatusToDbStatus(String displayStatus) {
+        if (displayStatus == null) return "Pendiente";
+
+        // Debe coincidir EXACTAMENTE con los valores de la restricción CHECK.
+        return switch (displayStatus.trim()) {
+            case "Pendiente" -> "Pendiente";
+            case "Procesando" -> "Procesando";
+            case "Enviado" -> "Enviado";
+            case "Completado" -> "Entregado"; // <-- ¡LA CORRECCIÓN CLAVE!
+            case "Cancelado" -> "Cancelado";
+            default -> "Pendiente";
+        };
+    }
+
+
     private void setupOrdersTable() {
-        // Usamos getters de la clase Order del Manager
         orderIdCol.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getOrderId()));
         customerCol.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getCustomerName()));
         dateCol.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getDate()));
-        statusCol.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getStatus()));
 
-        // Columna de acciones (botón "Ver Detalles" que dispara el listener de selección)
+        // La columna de estado ahora usa el mapeo para mostrar el estado en español
+        statusCol.setCellValueFactory(cellData ->
+                new SimpleStringProperty(mapDbStatusToDisplayStatus(cellData.getValue().getStatus()))
+        );
+
+        // Columna de acciones (botón "Ver Detalles")
         actionsCol.setCellFactory(param -> new TableCell<>() {
             final Button btn = new Button("Ver Detalles");
             {
                 btn.setOnAction(event -> {
                     Order order = getTableView().getItems().get(getIndex());
-                    ordersTable.getSelectionModel().select(order); // Selecciona la fila y dispara el listener
+                    ordersTable.getSelectionModel().select(order);
                 });
+                btn.setStyle("-fx-font-size: 10px; -fx-padding: 3 5; -fx-background-color: #00796B; -fx-text-fill: white;");
             }
 
             @Override
@@ -107,7 +145,6 @@ public class OrdersAdminController {
     }
 
     private void setupNewOrderItemsTable() {
-        // Usamos getters de la clase OrderItem del Manager
         newItemProductCol.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getProductName()));
         newItemQuantityCol.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getQuantity()));
         // Muestra el subtotal del ítem
@@ -116,16 +153,24 @@ public class OrdersAdminController {
     }
 
     private void setupStatusComboBox() {
+        // Los valores en el ComboBox deben ser en español para la UI
+        // Usamos 'Completado' porque es un término común para el usuario.
         statusComboBox.getItems().addAll("Pendiente", "Procesando", "Enviado", "Completado", "Cancelado");
-        statusComboBox.getSelectionModel().selectFirst(); // Estado por defecto
+        statusComboBox.getSelectionModel().selectFirst();
     }
 
     private void setupProductCreationControls() {
-        // Cargar productos disponibles para el ComboBox (AvailableProduct usa getters)
+        if (productComboBox == null || quantitySpinner == null) {
+            System.err.println("FATAL ERROR FXML: Componentes de producto/cantidad no inicializados.");
+            return;
+        }
+
+        // Cargar productos disponibles para el ComboBox
         try {
             List<AvailableProduct> products = manager.loadAvailableProducts();
             productComboBox.getItems().addAll(products);
-            // El ComboBox necesita un CellFactory si quieres mostrar el nombre del producto y no el objeto completo
+
+            // Configurar la visualización del producto (Nombre y Precio)
             productComboBox.setCellFactory(lv -> new ListCell<>() {
                 @Override
                 protected void updateItem(AvailableProduct item, boolean empty) {
@@ -133,11 +178,14 @@ public class OrdersAdminController {
                     setText(empty ? "" : item.getName() + " ($" + String.format("%.2f", item.getPrice()) + ")");
                 }
             });
-            productComboBox.setButtonCell(productComboBox.getCellFactory().call(null)); // Para la selección mostrada
+            productComboBox.setButtonCell(productComboBox.getCellFactory().call(null));
 
-            productComboBox.getSelectionModel().selectFirst();
+            if (!products.isEmpty()) {
+                productComboBox.getSelectionModel().selectFirst();
+            }
         } catch (RuntimeException e) {
-            showAlert("Error de DB", "No se pudieron cargar los productos disponibles: " + e.getMessage(), Alert.AlertType.ERROR);
+            System.err.println("Error al cargar datos del Manager: " + e.getMessage());
+            showAlert("Error de Carga de Datos", "No se pudieron cargar los productos disponibles: " + e.getMessage(), Alert.AlertType.ERROR);
         }
 
         // Inicializar Spinner de Cantidad
@@ -170,10 +218,10 @@ public class OrdersAdminController {
             List<Order> loadedOrders = manager.loadAllOrders();
             ordersList.setAll(loadedOrders);
             if (!loadedOrders.isEmpty()) {
-                // Selecciona el primer pedido si existe
                 ordersTable.getSelectionModel().selectFirst();
             }
         } catch (RuntimeException e) {
+            System.err.println("Error al cargar datos del Manager: " + e.getMessage());
             showAlert("Error de Conexión", "No se pudo conectar a la base de datos o cargar los pedidos: " + e.getMessage(), Alert.AlertType.ERROR);
         }
     }
@@ -189,7 +237,8 @@ public class OrdersAdminController {
         sb.append(String.format("Cliente: %s\n", order.getCustomerName()));
         sb.append(String.format("Fecha: %s\n", order.getDate()));
         sb.append(String.format("Dirección: %s\n", order.getShippingAddress()));
-        sb.append(String.format("Estado Actual: %s\n\n", order.getStatus()));
+        // Mapear el estado de la DB a español para la vista
+        sb.append(String.format("Estado Actual: %s\n\n", mapDbStatusToDisplayStatus(order.getStatus())));
         sb.append("--- Ítems del Pedido ---\n");
 
         double total = 0.0;
@@ -201,45 +250,50 @@ public class OrdersAdminController {
         sb.append(String.format("\nTOTAL DEL PEDIDO: $%.2f", total));
         detailsTextArea.setText(sb.toString());
 
-        // Sincronizar ComboBox de estado con el estado actual del pedido
-        statusComboBox.getSelectionModel().select(order.getStatus());
+        // Sincronizar ComboBox de estado con el estado traducido
+        statusComboBox.getSelectionModel().select(mapDbStatusToDisplayStatus(order.getStatus()));
     }
 
     /**
      * Maneja la acción de actualizar el estado del pedido en la DB.
-     * Método: handleUpdateStatus
      */
     @FXML
     private void handleUpdateStatus() {
         Order selectedOrder = ordersTable.getSelectionModel().getSelectedItem();
-        String newStatus = statusComboBox.getSelectionModel().getSelectedItem();
+        String displayStatus = statusComboBox.getSelectionModel().getSelectedItem(); // Valor en español de la UI ("Completado")
 
-        if (selectedOrder == null || newStatus == null) {
+        if (selectedOrder == null || displayStatus == null) {
             showAlert("Error", "Selecciona un pedido y un nuevo estado.", Alert.AlertType.WARNING);
             return;
         }
 
-        if (manager.updateOrderStatus(selectedOrder.getOrderId(), newStatus)) {
-            // Recrear la orden con el nuevo estado
-            Order updatedOrder = new Order(
-                    selectedOrder.getOrderId(),
-                    selectedOrder.getCustomerName(),
-                    selectedOrder.getDate(),
-                    newStatus, // Estado actualizado
-                    selectedOrder.getShippingAddress(),
-                    selectedOrder.getItems()
-            );
+        // <--- APLICAMOS EL MAPEO AQUÍ --->
+        // Se traduce 'Completado' a 'Entregado' para coincidir con la restricción de la DB
+        String dbStatus = mapDisplayStatusToDbStatus(displayStatus);
+        System.out.println("DEBUG: Enviando estado a DB (Valor de DB): " + dbStatus); // Para verificar
 
+        if (manager.updateOrderStatus(selectedOrder.getOrderId(), dbStatus)) {
             // Actualizar la lista observable y la selección
             int index = ordersList.indexOf(selectedOrder);
             if (index != -1) {
+                // Crear una copia con el nuevo estado para refrescar la vista.
+                // Usamos el valor de la DB (dbStatus) ya que Order lo almacena
+                Order updatedOrder = new Order(
+                        selectedOrder.getOrderId(),
+                        selectedOrder.getCustomerName(),
+                        selectedOrder.getDate(),
+                        dbStatus, // Estado actualizado (en el formato de la DB)
+                        selectedOrder.getShippingAddress(),
+                        selectedOrder.getItems()
+                );
                 ordersList.set(index, updatedOrder);
                 ordersTable.getSelectionModel().select(updatedOrder);
                 showOrderDetails(updatedOrder); // Refrescar detalles
             }
-            showAlert("Éxito", "Estado del pedido actualizado a " + newStatus + ".", Alert.AlertType.INFORMATION);
+            // Notificar usando el término de la UI ('Completado')
+            showAlert("Éxito", "Estado del pedido actualizado a " + displayStatus + " correctamente.", Alert.AlertType.INFORMATION);
         } else {
-            showAlert("Error de DB", "No se pudo actualizar el estado del pedido.", Alert.AlertType.ERROR);
+            showAlert("Error de DB", "No se pudo actualizar el estado del pedido. Revisa los logs del Manager para detalles.", Alert.AlertType.ERROR);
         }
     }
 
@@ -247,7 +301,6 @@ public class OrdersAdminController {
 
     /**
      * Maneja la acción de añadir un ítem a la tabla del nuevo pedido.
-     * Método: handleAddItemToNewOrder
      */
     @FXML
     private void handleAddItemToNewOrder() {
@@ -293,45 +346,61 @@ public class OrdersAdminController {
 
     /**
      * Maneja la acción de crear el nuevo pedido en la DB.
-     * Método: handlePlaceOrder
      */
     @FXML
     private void handlePlaceOrder() {
+        // OBTENEMOS DIRECTAMENTE DEL TEXTFIELD
         String customerName = newCustomerNameField.getText().trim();
         String shippingAddress = newShippingAddressField.getText().trim();
 
-        if (customerName.isEmpty() || shippingAddress.isEmpty() || newOrderItemsList.isEmpty()) {
-            showAlert("Validación", "Debes ingresar el nombre del cliente, la dirección y añadir al menos un producto.", Alert.AlertType.WARNING);
+        // 1. Validación de Campos
+        if (customerName.isEmpty()) {
+            showAlert("Validación", "Debes ingresar el nombre del cliente.", Alert.AlertType.WARNING);
+            return;
+        }
+
+        if (shippingAddress.isEmpty()) {
+            showAlert("Validación", "Debes ingresar la dirección de envío.", Alert.AlertType.WARNING);
+            return;
+        }
+
+        if (newOrderItemsList.isEmpty()) {
+            showAlert("Validación", "Debes añadir al menos un producto.", Alert.AlertType.WARNING);
             return;
         }
 
         String currentDate = LocalDate.now().format(DateTimeFormatter.ISO_DATE);
-        // Creamos una copia de la lista para pasarla al Manager
         List<OrderItem> itemsToSave = new ArrayList<>(newOrderItemsList);
 
+        // El Manager se encarga de findOrCreateCustomer con el string del nombre
         int newOrderId = manager.createNewOrder(customerName, currentDate, shippingAddress, itemsToSave);
 
         if (newOrderId != -1) {
             showAlert("Éxito", "El nuevo pedido (ID: " + newOrderId + ") ha sido creado y guardado en la DB.", Alert.AlertType.INFORMATION);
-            // Recargar la lista de pedidos y limpiar el formulario de creación
-            loadInitialData(); // Para ver el nuevo pedido en la tabla principal
+            loadInitialData();
             clearNewOrderForm();
         } else {
-            showAlert("Error de DB", "Fallo al guardar el nuevo pedido en la base de datos. Revisa la consola.", Alert.AlertType.ERROR);
+            showAlert("Error de DB", "Fallo al guardar el nuevo pedido en la base de datos. Revisa la consola para detalles.", Alert.AlertType.ERROR);
         }
     }
 
+    /**
+     * Limpia los campos del formulario de creación de nuevos pedidos.
+     */
     private void clearNewOrderForm() {
         newCustomerNameField.clear();
         newShippingAddressField.clear();
         newOrderItemsList.clear();
-        productComboBox.getSelectionModel().selectFirst();
+        if (productComboBox.getSelectionModel().getSelectedItem() != null) {
+            productComboBox.getSelectionModel().selectFirst();
+        }
         quantitySpinner.getValueFactory().setValue(1);
         updateTotal();
     }
 
-    // --- Utilidades ---
-
+    /**
+     * Método auxiliar para mostrar alertas de forma consistente.
+     */
     private void showAlert(String title, String message, Alert.AlertType type) {
         Alert alert = new Alert(type);
         alert.setTitle(title);
