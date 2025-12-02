@@ -89,7 +89,7 @@ public class ProductCardController implements Initializable {
     private void loadImage() {
         if (product == null || product.getImage_url() == null || product.getImage_url().trim().isEmpty()) {
             System.err.println("ProductCardController: Producto o URL de imagen nulo/vacío. Usando placeholder.");
-            Image fallback = ImageUtil.loadImageFromProductUrl("/images/placeholder.png");
+            Image fallback = ImageUtil.loadImageFromProductUrl("resources/´product_images/placeholder.png");
             if (fallback != null) {
                 productImageView.setImage(fallback);
             }
