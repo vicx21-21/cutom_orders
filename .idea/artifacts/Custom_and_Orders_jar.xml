@@ -1,8 +1,10 @@
 <component name="ArtifactManager">
-  <artifact type="jar" name="Custom_and_Orders:jar">
+  <artifact type="jar" build-on-make="true" name="Custom_and_Orders:jar">
     <output-path>$PROJECT_DIR$/out/artifacts/Custom_and_Orders_jar</output-path>
     <root id="archive" name="Custom_and_Orders.jar">
-      <element id="module-output" name="Custom_and_Orders" />
+      <element id="directory" name="META-INF">
+        <element id="file-copy" path="$PROJECT_DIR$/out/artifacts/Custom_and_Orders_jar/META-INF/MANIFEST.MF" />
+      </element>
       <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/openjfx/javafx-graphics/21.0.6/javafx-graphics-21.0.6-win.jar" path-in-jar="/" />
       <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/openjfx/javafx-fxml/21.0.6/javafx-fxml-21.0.6.jar" path-in-jar="/" />
       <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/openjfx/javafx-fxml/21.0.6/javafx-fxml-21.0.6-win.jar" path-in-jar="/" />
@@ -13,6 +15,7 @@
       <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/openjfx/javafx-base/21.0.6/javafx-base-21.0.6.jar" path-in-jar="/" />
       <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/openjfx/javafx-base/21.0.6/javafx-base-21.0.6-win.jar" path-in-jar="/" />
       <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/openjfx/javafx-graphics/21.0.6/javafx-graphics-21.0.6.jar" path-in-jar="/" />
+      <element id="module-output" name="app" />
     </root>
   </artifact>
 </component>
