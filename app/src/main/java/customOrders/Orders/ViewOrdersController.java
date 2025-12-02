@@ -1,18 +1,13 @@
 package customOrders.Orders;
-
-// Importaciones necesarias para JavaFX
-import javafx.fxml.FXML;
-import javafx.fxml.Initializable;
-import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.beans.property.SimpleStringProperty; // Importación necesaria para SimpleStringProperty
 
 // Importaciones para Base de Datos
 import customOrders.PostgresConnector;
 import customOrders.Products.Product; // Necesario para la entidad Producto
-import customOrders.CustomerAware; // *** IMPORTACIÓN CORREGIDA ***
-import customOrders.Customer; // Importación a la raíz
+import customOrders.CustomerAware;
+import customOrders.Customer;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -20,6 +15,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.net.URL;
 import java.util.ResourceBundle;
+
+// Importaciones para JavaFX
+import javafx.fxml.FXML;
+import javafx.fxml.Initializable;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TableCell; // Necesario para CellFactory
+import javafx.scene.control.cell.PropertyValueFactory;
+
+// Clases de modelos (asumo que están en el mismo paquete o importadas correctamente)
+import customOrders.Orders.Order;
+import customOrders.Orders.ProductInOrder;
 
 /**
  * Controlador para la vista de historial de órdenes del cliente.
@@ -77,6 +85,7 @@ public class ViewOrdersController implements Initializable, CustomerAware {
         orderIdColumn.setCellValueFactory(new PropertyValueFactory<>("order_id"));
         dateColumn.setCellValueFactory(new PropertyValueFactory<>("date_of_order"));
         statusColumn.setCellValueFactory(new PropertyValueFactory<>("order_status"));
+        // El PropertyValueFactory está bien, pero el objeto Order debe tener el valor correcto
         totalColumn.setCellValueFactory(new PropertyValueFactory<>("total_amount"));
 
         // Formateadores de celda para fechas y moneda
@@ -88,7 +97,7 @@ public class ViewOrdersController implements Initializable, CustomerAware {
         // Mapeo del nombre del producto (requiere acceder a Product dentro de ProductInOrder)
         itemNameColumn.setCellValueFactory(cellData -> {
             String name = cellData.getValue().getProduct().getProduct_name();
-            return new javafx.beans.property.SimpleStringProperty(name);
+            return new SimpleStringProperty(name);
         });
 
         itemQuantityColumn.setCellValueFactory(new PropertyValueFactory<>("quantity"));
@@ -133,6 +142,8 @@ public class ViewOrdersController implements Initializable, CustomerAware {
                     int orderId = rs.getInt("order_id");
                     LocalDate dateOfOrder = rs.getDate("date_of_order").toLocalDate();
                     String status = rs.getString("order_status");
+                    // *** VALOR CLAVE: total_amount que viene de la DB ***
+                    double totalAmountFromDB = rs.getDouble("total_amount");
                     String address = rs.getString("shipping_address");
 
                     // Llamando al constructor de 6 parámetros de Order: (id, customer_id, date, status, address, items)
@@ -144,6 +155,13 @@ public class ViewOrdersController implements Initializable, CustomerAware {
                             address,
                             new ArrayList<>() // Lista vacía de ProductInOrder
                     );
+
+                    // *** CORRECCIÓN CRUCIAL: Inicializar el total_amount con el valor de la DB ***
+                    // Asumimos que la clase Order tiene un setter llamado setTotal_amount(double)
+                    // o un constructor alternativo que acepte este valor.
+                    // Si no existe setTotal_amount(), esto podría fallar.
+                    // Si existe el setter, es la solución más limpia:
+                    order.setTotal_amount(totalAmountFromDB);
 
                     orders.add(order);
                 }
@@ -224,6 +242,12 @@ public class ViewOrdersController implements Initializable, CustomerAware {
                 List<ProductInOrder> items = getItemsForOrder(order.getOrder_id());
                 order.setItems(items); // Esto asegura que el total_amount de la orden se recalcule correctamente
                 itemsTable.getItems().setAll(items);
+
+                // *** CORRECCIÓN ADICIONAL: Forzar el refresco de la tabla principal ***
+                // Esto garantiza que el total_amount (que se recalcula en order.setItems())
+                // se muestre inmediatamente en la columna totalColumn, resolviendo el síntoma
+                // de tener que "picarle a la flecha" para que aparezca.
+                ordersTable.refresh();
 
                 // Actualizar etiquetas con detalles de la orden
                 orderDetailsTitle.setText("Contenido del Pedido ID: " + order.getOrder_id());

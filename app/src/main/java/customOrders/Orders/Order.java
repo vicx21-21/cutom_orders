@@ -22,7 +22,7 @@ public class Order {
     // Lista de ítems del pedido
     private List<ProductInOrder> items;
 
-    // El total se calcula, no se almacena directamente.
+    // El total se almacena. Es inicializado por la DB o calculado dinámicamente.
     private Double total_amount;
 
     // Constructor para órdenes existentes (desde la BD)
@@ -34,7 +34,11 @@ public class Order {
         this.order_status = Objects.requireNonNullElse(order_status, "Pendiente");
         this.shipping_address = Objects.requireNonNullElse(shipping_address, "");
         this.items = Objects.requireNonNullElseGet(items, ArrayList::new);
-        this.total_amount = calculateTotal();
+
+        // CORRECCIÓN: Inicializamos total_amount a 0.0.
+        // El ViewOrdersController inyectará el valor de la DB usando setTotal_amount()
+        // O bien, si la lista de items no está vacía (ej. en un nuevo pedido), lo calcula.
+        this.total_amount = (this.items.isEmpty() && order_id != null) ? 0.0 : calculateTotal();
     }
 
     // Constructor para una nueva orden (ID=null)
@@ -49,11 +53,14 @@ public class Order {
     public String getOrder_status() { return order_status; }
     public String getShipping_address() { return shipping_address; }
 
-    // El total_amount se calcula dinámicamente
+    /**
+     * Devuelve el monto total almacenado. En la vista de pedidos históricos,
+     * este será el valor cargado de la DB. En la vista de creación, será el calculado.
+     */
     public Double getTotal_amount() {
-        this.total_amount = calculateTotal();
         return total_amount;
     }
+
     public List<ProductInOrder> getItems() { return items; }
 
     // --- Setters (Necesarios para el CRUD) ---
@@ -67,7 +74,16 @@ public class Order {
     public void setDate_of_order(LocalDate date_of_order) { this.date_of_order = date_of_order; }
     public void setOrder_status(String order_status) { this.order_status = order_status; }
     public void setShipping_address(String shipping_address) { this.shipping_address = shipping_address; }
-    public void setItems(List<ProductInOrder> items) { this.items = items; }
+    public void setItems(List<ProductInOrder> items) {
+        this.items = items;
+        // Siempre recalcular el total al actualizar la lista de ítems.
+        this.total_amount = calculateTotal();
+    }
+
+    // *** CORRECCIÓN: Setter faltante para inyectar el total histórico de la DB ***
+    public void setTotal_amount(Double total_amount) {
+        this.total_amount = total_amount;
+    }
 
     /**
      * Calcula el monto total del pedido sumando los subtotales de todos los items.
@@ -85,9 +101,13 @@ public class Order {
         for (ProductInOrder existingItem : items) {
             if (existingItem.getProduct().getProduct_id() == newItem.getProduct().getProduct_id()) {
                 existingItem.setQuantity(existingItem.getQuantity() + newItem.getQuantity());
+                // Forzar el recálculo
+                this.total_amount = calculateTotal();
                 return;
             }
         }
         this.items.add(newItem);
+        // Forzar el recálculo
+        this.total_amount = calculateTotal();
     }
 }
