@@ -203,6 +203,31 @@ public class OrdersAdminManager {
     }
 
     /**
+     * Carga todos los nombres completos de los clientes para la función de autocompletado.
+     * Este es el método que requería el Controller.
+     */
+    public List<String> loadAllCustomerNames() {
+        List<String> customerNames = new ArrayList<>();
+        // Concatenamos el nombre y apellido en la consulta SQL para mayor eficiencia.
+        String SQL = "SELECT first_name || ' ' || last_name AS full_name FROM customers ORDER BY last_name, first_name";
+
+        try (Connection conn = PostgresConnector.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(SQL)) {
+
+            while (rs.next()) {
+                customerNames.add(rs.getString("full_name"));
+            }
+        } catch (SQLException ex) {
+            System.err.println("ERROR Manager: Fallo al cargar nombres de clientes para autocompletar. Mensaje de SQL: " + ex.getMessage());
+            // No es un fallo crítico para el funcionamiento general, pero debe ser notificado.
+            return new ArrayList<>(); // Devolver lista vacía en caso de error
+        }
+        return customerNames;
+    }
+
+
+    /**
      * Carga todos los pedidos.
      */
     public List<Order> loadAllOrders() {

@@ -37,7 +37,8 @@ public class OrdersAdminController {
     @FXML private Button updateStatusButton;
 
     // SECCIÓN DE CREACIÓN DE NUEVOS PEDIDOS
-    @FXML private TextField newCustomerNameField;
+    // CAMBIO CLAVE: ComboBox para el autocompletado de clientes
+    @FXML private ComboBox<String> newCustomerNameComboBox;
     @FXML private TextField newShippingAddressField;
     @FXML private ComboBox<AvailableProduct> productComboBox;
     @FXML private Spinner<Integer> quantitySpinner;
@@ -52,6 +53,8 @@ public class OrdersAdminController {
     private final OrdersAdminManager manager;
     private ObservableList<Order> ordersList;
     private ObservableList<OrderItem> newOrderItemsList;
+    // Lista completa de nombres de clientes para el autocompletado
+    private ObservableList<String> allCustomerNames;
 
     public OrdersAdminController() {
         this.manager = new OrdersAdminManager();
@@ -63,6 +66,7 @@ public class OrdersAdminController {
     public void initialize() {
         ordersList = FXCollections.observableArrayList();
         newOrderItemsList = FXCollections.observableArrayList();
+        allCustomerNames = FXCollections.observableArrayList();
 
         setupOrdersTable();
         setupNewOrderItemsTable();
@@ -70,6 +74,7 @@ public class OrdersAdminController {
         loadInitialData();
         setupListeners();
         setupProductCreationControls();
+        setupCustomerAutocomplete(); // NUEVO: Configuración del autocompletado
     }
 
     /**
@@ -195,6 +200,50 @@ public class OrdersAdminController {
         newOrderItemsList.addListener((javafx.beans.InvalidationListener) observable -> updateTotal());
         updateTotal(); // Calcular el total inicial (0.0)
     }
+
+    /**
+     * Configura el ComboBox del cliente para tener funcionalidad de autocompletado.
+     */
+    private void setupCustomerAutocomplete() {
+        // 1. Cargar la lista completa de nombres de clientes
+        try {
+            // ASUMIMOS que OrdersAdminManager tiene este método (debe ser implementado).
+            List<String> names = manager.loadAllCustomerNames();
+            allCustomerNames.addAll(names);
+        } catch (RuntimeException e) {
+            System.err.println("Error al cargar nombres de clientes para autocompletar: " + e.getMessage());
+            // Si falla la carga, el ComboBox seguirá funcionando como campo de entrada manual.
+        }
+
+        newCustomerNameComboBox.setItems(allCustomerNames);
+        newCustomerNameComboBox.setEditable(true);
+
+        // 2. Implementar el filtro de autocompletado
+        newCustomerNameComboBox.getEditor().textProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue == null || newValue.isEmpty()) {
+                // Si el campo está vacío, restaurar todos los ítems y ocultar.
+                newCustomerNameComboBox.setItems(allCustomerNames);
+                newCustomerNameComboBox.hide();
+                return;
+            }
+
+            // Crear una lista filtrada (no sensible a mayúsculas/minúsculas)
+            List<String> filteredList = allCustomerNames.stream()
+                    .filter(name -> name.toLowerCase().startsWith(newValue.toLowerCase()))
+                    .toList();
+
+            // Actualizar la lista visible en el ComboBox
+            newCustomerNameComboBox.setItems(FXCollections.observableArrayList(filteredList));
+
+            // Mostrar el ComboBox si hay ítems filtrados
+            if (!filteredList.isEmpty() && !newCustomerNameComboBox.isShowing()) {
+                newCustomerNameComboBox.show();
+            } else if (filteredList.isEmpty()) {
+                newCustomerNameComboBox.hide();
+            }
+        });
+    }
+
 
     private void setupListeners() {
         // Listener para la selección de pedidos en la tabla
@@ -349,8 +398,8 @@ public class OrdersAdminController {
      */
     @FXML
     private void handlePlaceOrder() {
-        // OBTENEMOS DIRECTAMENTE DEL TEXTFIELD
-        String customerName = newCustomerNameField.getText().trim();
+        // OBTENEMOS EL VALOR DEL COMBOBOX/EDITOR
+        String customerName = newCustomerNameComboBox.getValue() != null ? newCustomerNameComboBox.getValue().trim() : "";
         String shippingAddress = newShippingAddressField.getText().trim();
 
         // 1. Validación de Campos
@@ -382,13 +431,19 @@ public class OrdersAdminController {
         } else {
             showAlert("Error de DB", "Fallo al guardar el nuevo pedido en la base de datos. Revisa la consola para detalles.", Alert.AlertType.ERROR);
         }
+
+        // Tras crear un pedido, es posible que se haya añadido un nuevo cliente,
+        // por lo que recargamos la lista de autocompletado.
+        setupCustomerAutocomplete();
     }
 
     /**
      * Limpia los campos del formulario de creación de nuevos pedidos.
      */
     private void clearNewOrderForm() {
-        newCustomerNameField.clear();
+        // Limpiar ComboBox
+        newCustomerNameComboBox.getSelectionModel().clearSelection();
+        newCustomerNameComboBox.setValue(null);
         newShippingAddressField.clear();
         newOrderItemsList.clear();
         if (productComboBox.getSelectionModel().getSelectedItem() != null) {

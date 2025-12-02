@@ -46,7 +46,6 @@
 
                                 <!-- Tabla de Órdenes -->
                                 <TableView fx:id="ordersTable" VBox.vgrow="ALWAYS">
-                                    <!-- SINTAXIS CORREGIDA para evitar 'Invalid path' -->
                                     <columnResizePolicy>
                                         <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
                                     </columnResizePolicy>
@@ -88,7 +87,9 @@
                                     </columnConstraints>
                                     <children>
                                         <Label text="Nombre Cliente:" />
-                                        <TextField fx:id="newCustomerNameField" promptText="Nombre del Cliente" GridPane.columnIndex="1" />
+                                        <!-- CAMBIO CLAVE: ComboBox para Autocompletado -->
+                                        <ComboBox fx:id="newCustomerNameComboBox" editable="true" promptText="Escribe o selecciona un cliente" GridPane.columnIndex="1" />
+
                                         <Label text="Dirección Envío:" GridPane.rowIndex="1" />
                                         <TextField fx:id="newShippingAddressField" promptText="Dirección de Envío" GridPane.columnIndex="1" GridPane.rowIndex="1" />
                                     </children>
@@ -107,7 +108,6 @@
 
                                 <!-- Tabla de Ítems del Nuevo Pedido -->
                                 <TableView fx:id="newOrderItemsTable" VBox.vgrow="ALWAYS">
-                                    <!-- SINTAXIS CORREGIDA para evitar 'Invalid path' -->
                                     <columnResizePolicy>
                                         <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
                                     </columnResizePolicy>
