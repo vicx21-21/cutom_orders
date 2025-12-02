@@ -12,12 +12,15 @@ import javafx.scene.control.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * OrdersAdminController: Capa de Presentación y Control.
  * Maneja la interacción del usuario y actualiza la vista,
  * utilizando OrdersAdminManager para la lógica de negocio.
+ * * Incluye lógica de ordenación personalizada: Pendientes más antiguos primero.
  */
 public class OrdersAdminController {
 
@@ -37,7 +40,7 @@ public class OrdersAdminController {
     @FXML private Button updateStatusButton;
 
     // SECCIÓN DE CREACIÓN DE NUEVOS PEDIDOS
-    // CAMBIO CLAVE: ComboBox para el autocompletado de clientes
+    // ComboBox para el autocompletado de clientes
     @FXML private ComboBox<String> newCustomerNameComboBox;
     @FXML private TextField newShippingAddressField;
     @FXML private ComboBox<AvailableProduct> productComboBox;
@@ -74,11 +77,11 @@ public class OrdersAdminController {
         loadInitialData();
         setupListeners();
         setupProductCreationControls();
-        setupCustomerAutocomplete(); // NUEVO: Configuración del autocompletado
+        setupCustomerAutocomplete();
     }
 
     /**
-     * Mapea el estado de la DB (Español, Title Case: 'Pendiente') a la visualización en español.
+     * Mapea el estado de la DB (Ej: 'Pendiente') a la visualización en español.
      * Mapeamos 'Entregado' de la DB a 'Completado' para la UI.
      */
     private String mapDbStatusToDisplayStatus(String dbStatus) {
@@ -107,7 +110,7 @@ public class OrdersAdminController {
             case "Pendiente" -> "Pendiente";
             case "Procesando" -> "Procesando";
             case "Enviado" -> "Enviado";
-            case "Completado" -> "Entregado"; // <-- ¡LA CORRECCIÓN CLAVE!
+            case "Completado" -> "Entregado"; // El valor que espera la DB
             case "Cancelado" -> "Cancelado";
             default -> "Pendiente";
         };
@@ -158,8 +161,7 @@ public class OrdersAdminController {
     }
 
     private void setupStatusComboBox() {
-        // Los valores en el ComboBox deben ser en español para la UI
-        // Usamos 'Completado' porque es un término común para el usuario.
+        // Los valores en el ComboBox son en español para la UI
         statusComboBox.getItems().addAll("Pendiente", "Procesando", "Enviado", "Completado", "Cancelado");
         statusComboBox.getSelectionModel().selectFirst();
     }
@@ -207,12 +209,10 @@ public class OrdersAdminController {
     private void setupCustomerAutocomplete() {
         // 1. Cargar la lista completa de nombres de clientes
         try {
-            // ASUMIMOS que OrdersAdminManager tiene este método (debe ser implementado).
             List<String> names = manager.loadAllCustomerNames();
-            allCustomerNames.addAll(names);
+            allCustomerNames.setAll(names); // Usamos setAll para manejar la recarga
         } catch (RuntimeException e) {
             System.err.println("Error al cargar nombres de clientes para autocompletar: " + e.getMessage());
-            // Si falla la carga, el ComboBox seguirá funcionando como campo de entrada manual.
         }
 
         newCustomerNameComboBox.setItems(allCustomerNames);
@@ -260,11 +260,18 @@ public class OrdersAdminController {
     }
 
     /**
-     * Carga los datos iniciales de la base de datos (PostgreSQL).
+     * Carga los datos iniciales de la base de datos y los ordena según los criterios:
+     * 1. Pendientes primero.
+     * 2. Fecha más antigua primero.
      */
     private void loadInitialData() {
         try {
             List<Order> loadedOrders = manager.loadAllOrders();
+
+            // --- Lógica de Ordenación Solicitada ---
+            loadedOrders.sort(getOrderComparator());
+            // ----------------------------------------
+
             ordersList.setAll(loadedOrders);
             if (!loadedOrders.isEmpty()) {
                 ordersTable.getSelectionModel().selectFirst();
@@ -273,6 +280,29 @@ public class OrdersAdminController {
             System.err.println("Error al cargar datos del Manager: " + e.getMessage());
             showAlert("Error de Conexión", "No se pudo conectar a la base de datos o cargar los pedidos: " + e.getMessage(), Alert.AlertType.ERROR);
         }
+    }
+
+    /**
+     * Define el comparador personalizado para ordenar los pedidos:
+     * 1. Prioridad para estado "Pendiente" (true = aparece primero).
+     * 2. Luego, por Fecha (Ascendente: más antigua primero).
+     */
+    private Comparator<Order> getOrderComparator() {
+        return Comparator
+                // 1. Ordenar por Estado (Pendiente primero)
+                // Corregido: Eliminado el argumento de tipo <Order> que causaba el error de compilación.
+                .comparing((Order order) -> Objects.equals(order.getStatus(), "Pendiente"), Comparator.reverseOrder())
+                // 2. Luego, por Fecha (Ascendente: más antigua primero)
+                .thenComparing(order -> {
+                    try {
+                        // Convertir la fecha String a LocalDate para una comparación adecuada (ISO_DATE: YYYY-MM-DD)
+                        return LocalDate.parse(order.getDate(), DateTimeFormatter.ISO_DATE);
+                    } catch (Exception e) {
+                        // Manejar error de parseo, asignando la fecha mínima para que aparezca al inicio
+                        System.err.println("Advertencia: Error al parsear fecha del pedido ID " + order.getOrderId() + ". Usando fecha mínima.");
+                        return LocalDate.MIN;
+                    }
+                });
     }
 
     // --- Lógica de Pedidos Existentes ---
@@ -316,17 +346,15 @@ public class OrdersAdminController {
             return;
         }
 
-        // <--- APLICAMOS EL MAPEO AQUÍ --->
-        // Se traduce 'Completado' a 'Entregado' para coincidir con la restricción de la DB
+        // Se traduce el estado de la UI ('Completado') al valor de la DB ('Entregado')
         String dbStatus = mapDisplayStatusToDbStatus(displayStatus);
         System.out.println("DEBUG: Enviando estado a DB (Valor de DB): " + dbStatus); // Para verificar
 
         if (manager.updateOrderStatus(selectedOrder.getOrderId(), dbStatus)) {
-            // Actualizar la lista observable y la selección
+
             int index = ordersList.indexOf(selectedOrder);
             if (index != -1) {
-                // Crear una copia con el nuevo estado para refrescar la vista.
-                // Usamos el valor de la DB (dbStatus) ya que Order lo almacena
+                // Crear una copia inmutable con el nuevo estado (en formato DB)
                 Order updatedOrder = new Order(
                         selectedOrder.getOrderId(),
                         selectedOrder.getCustomerName(),
@@ -335,11 +363,18 @@ public class OrdersAdminController {
                         selectedOrder.getShippingAddress(),
                         selectedOrder.getItems()
                 );
+
+                // 1. Actualizar el objeto Order en la lista observable.
                 ordersList.set(index, updatedOrder);
+
+                // 2. Reordenar toda la lista. Esto moverá el pedido si su estado Pendiente cambió.
+                ordersList.sort(getOrderComparator());
+
+                // 3. Volver a seleccionar el pedido actualizado.
                 ordersTable.getSelectionModel().select(updatedOrder);
                 showOrderDetails(updatedOrder); // Refrescar detalles
             }
-            // Notificar usando el término de la UI ('Completado')
+            // Notificar usando el término de la UI
             showAlert("Éxito", "Estado del pedido actualizado a " + displayStatus + " correctamente.", Alert.AlertType.INFORMATION);
         } else {
             showAlert("Error de DB", "No se pudo actualizar el estado del pedido. Revisa los logs del Manager para detalles.", Alert.AlertType.ERROR);
@@ -426,7 +461,7 @@ public class OrdersAdminController {
 
         if (newOrderId != -1) {
             showAlert("Éxito", "El nuevo pedido (ID: " + newOrderId + ") ha sido creado y guardado en la DB.", Alert.AlertType.INFORMATION);
-            loadInitialData();
+            loadInitialData(); // Recargar y reordenar toda la lista, incluyendo el nuevo pedido
             clearNewOrderForm();
         } else {
             showAlert("Error de DB", "Fallo al guardar el nuevo pedido en la base de datos. Revisa la consola para detalles.", Alert.AlertType.ERROR);
