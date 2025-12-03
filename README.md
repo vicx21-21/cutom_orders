@@ -1,4 +1,4 @@
-[README (2).txt](https://github.com/user-attachments/files/23894254/README.2.txt)
+
 En pgAdmin4 crear una base de datos en el servidor de postgres llamada data_model_with_cutom_orders
 
 Acto seguido ejecutar los scripts incluidos en la carpeta en el siguiente orden:
