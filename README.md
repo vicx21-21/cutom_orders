@@ -1,4 +1,3 @@
-
 En pgAdmin4 crear una base de datos en el servidor de postgres llamada data_model_with_cutom_orders
 
 Acto seguido ejecutar los scripts incluidos en la carpeta en el siguiente orden:
@@ -9,4 +8,4 @@ Acto seguido ejecutar los scripts incluidos en la carpeta en el siguiente orden:
 5. Ejecutar agregar_Prod
 6. Ejecutar agregar_Client
 
-Correr la clase Launcher
+Correr la clase Launcher, iniciar session como User: emplado2 - Pass: empleado2025
